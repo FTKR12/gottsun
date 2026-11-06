@@ -40,7 +40,8 @@ const GAUGE_TOUCH = 0.05;  // ... per touch of the ball
 const GAUGE_CONCEDE = 0.18;
 const HIT_STUN = 2.6;       // knocked down this long when the health runs out
 const HOT_T = 6;           // まっかっかヘッド
-const DRUNK_T = 5;         // のめのめ攻撃: tipsy this long
+const DRUNK_T = 5;
+const PRESENT_T = 4.6;     // 冷徹プレゼン: the slides are up this long (the meteors fall in the middle of it)         // のめのめ攻撃: tipsy this long
 const MUSCLE_T = 7;        // ムキムキうで lasts this long (the first part is the flex)
 const FIST_R = 0.4;        // the muscle fist, in head radii// ... for the team that let a goal in
 
@@ -50,39 +51,39 @@ const TEAM_COL = [
 ];
 
 // stat (1..5) to physics: wide steps, so every character plays differently
-const spdOf = s => 300 + 52 * s;        // run speed, px/s: 352 .. 560
-const jmpOf = s => 830 + 72 * s;        // take-off speed: 902 .. 1190 (jump 160 .. 278 px)
-const kckOf = s => 920 + 125 * s;       // kick speed: 1045 .. 1545
+const spdOf = s => 270 + 72 * s;        // run speed, px/s: 342 .. 630
+const jmpOf = s => 760 + 104 * s;       // take-off speed: 864 .. 1280 (jump 146 .. 321 px)
+const kckOf = s => 850 + 165 * s;       // kick speed: 1015 .. 1675
 
 // ---- characters (all original) ----
 // size: head size (1 = normal). A big head blocks and heads more, a small one is quick and light.
 // body: the same as pips for the menus. look: what art.js draws on the head. sup: the super (SUPERS)
 const CHARS = [
-  { id: 'rekka', name: 'レッカ', type: 'バランス型', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'fire', mass: 1,
+  { id: 'rekka', name: 'レッカ', type: 'バランス型', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'fire', mass: 1,
     skin: '#FFD3B0', hair: '#E8361E', hair2: '#FFB21E', look: 'spiky', blurb: 'なんでもこなす。必殺の火の玉でゴールをねらう' },
-  { id: 'yukimi', name: 'ユキミ', type: 'テクニック型', size: 0.93, body: 2, spd: 3, jmp: 4, kck: 3, sup: 'ice', mass: 0.9,
-    skin: '#FFE2D2', hair: '#BFE6FF', hair2: '#FFFFFF', look: 'bob', blurb: '小がらで身軽。ジャンプもキックもそこそこ' },
-  { id: 'gorou', name: 'ゴロウ', type: 'パワー型', size: 1.07, body: 4, spd: 2, jmp: 2, kck: 5, sup: 'thunder', mass: 1.3,
-    skin: '#F2C79A', hair: '#5B4A7A', hair2: '#FFD21E', look: 'cloud', blurb: 'キックはいちばん強い。でも足はおそい' },
-  { id: 'kagemaru', name: 'カゲマル', type: 'スピード型', size: 0.9, body: 2, spd: 5, jmp: 3, kck: 3, sup: 'clone', mass: 0.85,
-    skin: '#F5CDA8', hair: '#2B3245', hair2: '#C8CED9', look: 'ninja', blurb: 'だれよりも速い。体が小さく、キックは弱め' },
-  { id: 'dosukoi', name: 'ドスコイ', type: '巨漢', size: 1.18, body: 5, spd: 1, jmp: 1, kck: 4, sup: 'giant', mass: 1.8,
+  { id: 'yukimi', name: 'ユキミ', type: 'テクニック型', size: 0.88, body: 2, spd: 3, jmp: 5, kck: 2, sup: 'ice', mass: 0.85,
+    skin: '#FFE2D2', hair: '#BFE6FF', hair2: '#FFFFFF', look: 'bob', blurb: '小がらで身軽。ジャンプはとても高いけれど、キックは弱め' },
+  { id: 'gorou', name: 'ゴロウ', type: 'パワー型', size: 1.05, body: 4, spd: 2, jmp: 1, kck: 5, sup: 'thunder', mass: 1.4,
+    skin: '#F2C79A', hair: '#5B4A7A', hair2: '#FFD21E', look: 'cloud', blurb: 'キックはいちばん強い。でも足はおそく、ジャンプも低い' },
+  { id: 'kagemaru', name: 'カゲマル', type: 'スピード型', size: 0.86, body: 2, spd: 5, jmp: 4, kck: 3, sup: 'clone', mass: 0.8,
+    skin: '#F5CDA8', hair: '#2B3245', hair2: '#C8CED9', look: 'ninja', blurb: 'だれよりも速い。体は小さいけれど、ジャンプもそこそこ' },
+  { id: 'dosukoi', name: 'ドスコイ', type: '巨漢', size: 1.28, body: 5, spd: 1, jmp: 1, kck: 3, sup: 'giant', mass: 2,
     skin: '#F8CFA6', hair: '#1E1E24', hair2: '#1E1E24', look: 'sumo', blurb: '頭がいちばん大きく、ゴール前のかべ。とてもおそい' },
-  { id: 'popo', name: 'ポポ', type: 'ジャンプ型', size: 0.85, body: 1, spd: 4, jmp: 5, kck: 2, sup: 'ghost', mass: 0.7, floaty: 0.84,
+  { id: 'popo', name: 'ポポ', type: 'ジャンプ型', size: 0.8, body: 1, spd: 4, jmp: 5, kck: 2, sup: 'ghost', mass: 0.7, floaty: 0.8,
     skin: '#EEF0FF', hair: '#C7B8FF', hair2: '#FF8FB8', look: 'ghost', blurb: 'いちばん小さく、ふわっと高くとぶ。キックは弱い' },
-  { id: 'robota', name: 'ロボ太', type: '守備型', size: 1.1, body: 4, spd: 2, jmp: 3, kck: 3, sup: 'rocket', mass: 1.5,
+  { id: 'robota', name: 'ロボ太', type: '守備型', size: 1.14, body: 4, spd: 2, jmp: 2, kck: 3, sup: 'rocket', mass: 1.8,
     skin: '#B9C6D6', hair: '#6F8196', hair2: '#45E0FF', look: 'robot', blurb: '大きくて重い。当たり負けしない守りの名人' },
-  { id: 'fuuta', name: 'フウタ', type: 'スピード＆ジャンプ', size: 0.94, body: 2, spd: 4, jmp: 4, kck: 3, sup: 'wind', mass: 0.9,
+  { id: 'fuuta', name: 'フウタ', type: 'スピード＆ジャンプ', size: 0.92, body: 2, spd: 4, jmp: 4, kck: 3, sup: 'wind', mass: 0.9,
     skin: '#FFD8B8', hair: '#39B36B', hair2: '#9CF0B8', look: 'wind', blurb: '速さとジャンプのいいとこどり。キックは軽め' },
-  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'muscle', mass: 1,
+  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.12, body: 4, spd: 3, jmp: 2, kck: 4, sup: 'muscle', mass: 1.6,
     skin: '#F3CFAE', hair: '#1D1A21', hair2: '#3B3542', look: 'shades', blurb: '年齢不明のごつい少年' },
-  { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'ramen', mass: 1,
+  { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 5, jmp: 3, kck: 4, sup: 'slide', mass: 1,
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'いじり方をミスるとキレるので要注意' },
-  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.95, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 1,
+  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.92, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 0.9,
     skin: '#F4D5BC', hair: '#E3C07A', hair2: '#6E4E30', look: 'longhair', blurb: '金髪でクールな手足長男' },
-  { id: 'kitahara', name: '北原', type: 'タマル', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1,
+  { id: 'kitahara', name: '北原', type: 'タマル', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1.1,
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
-  { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 3, jmp: 4, kck: 3, sup: 'drink', mass: 1, beer: true,
+  { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'drink', mass: 1, beer: true,
     skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
@@ -98,6 +99,7 @@ const SUPERS = {
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  slide:   { name: '冷徹プレゼン',     icon: '📊', armed: false, desc: 'パワポを発動！ 冷徹な顔でスライドを見せつけると、相手チームの上に流星群がふりそそぐ' },
   drink:   { name: 'のめのめ攻撃',     icon: '🍺', armed: false, desc: '相手チーム全員にビールをのませる！ のまされた相手は5秒間よっぱらってフラフラ' },
   hot:     { name: 'まっかっかヘッド', icon: '🥵', armed: false, desc: '顔が真っ赤に！ 6秒間、頭がアツアツになって、当たったボールはロケットみたいに飛んでいく。さわった相手は「あちっ！」' },
   muscle:  { name: 'ムキムキうで',     icon: '💪', armed: false, desc: '7秒間、うでがムキムキに！ キックボタンでパンチ。ボールをはじき返し、当たった相手には大ダメージ' },

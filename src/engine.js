@@ -15,7 +15,7 @@ function newMatch(setup) {
     setup, seed, rng: mkRng(seed), t: 0, tick: 0,
     phase: 'countdown', phaseT: 0,
     clock: setup.time || 90, ot: false, result: null,
-    score: [0, 0], players: [], ball: null, fakes: [], items: [],
+    score: [0, 0], players: [], ball: null, fakes: [], items: [], meteors: [], meteorSeq: 0,
     itemT: 9, itemSeq: 0, fakeSeq: 0,
     goalH: [GOAL_H, GOAL_H], goalFx: [{ k: '', t: 0 }, { k: '', t: 0 }], floatT: 0, bigBallT: 0,
     wind: { team: -1, t: 0 },
@@ -45,8 +45,8 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0,
-    hp: 1, hurtT: -9, burnT: -9,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0, present: 0,
+    hp: 1, hurtT: -9, burnT: -9, meteorT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
     cpu: null, away: false,
@@ -100,7 +100,7 @@ function circRect(cx, cy, r, x0, y0, x1, y1) {
 }
 function speedMul(p) { return (p.dash > 0 ? 1.32 : 1) * (p.giant > 0 ? 0.92 : 1) * (p.cpuSpeed || 1); }
 function jumpMul(p) { return (p.dash > 0 ? 1.12 : 1) * (p.giant > 0 ? 0.95 : 1); }
-function massOf(p) { return CHARS[p.char].mass * p.scale * p.scale * (p.muscle > 0 ? 2 : 1); }
+function massOf(p) { return Math.sqrt(CHARS[p.char].mass) * p.scale * (p.muscle > 0 ? 2 : 1); }
 // ムキムキうで: where the front fist is. A short flex first, then guarding the chin, punching out with the kick
 function fistAt(p, kt) {
   const r = p.r;
@@ -153,7 +153,7 @@ function resetPositions(G, first) {
   b.x = W / 2; b.y = 200; b.vx = 0; b.vy = 0; b.av = 0; b.mode = ''; b.modeT = 0; b.held = true; b.restT = 0;
   b.last = -1; b.lastTeam = -1; b.prevX = b.x; b.prevY = b.y;
   b.teamLast = [-1, -1]; b.teamLastT = [-9, -9];
-  G.fakes.length = 0;
+  G.fakes.length = 0; G.meteors.length = 0;
   G.wind.t = 0;
   if (!first) ev(G, 'reset', { ep: G.epoch });
 }
@@ -179,6 +179,7 @@ function step(G, inputs) {
   }
   separatePlayers(G);
   hitPlayers(G);
+  stepMeteors(G, DT);
   if (!G.ball.held) {
     for (let s = 0; s < SUB; s++) ballSub(G, DT / SUB, s);
     stepFakes(G, DT);
@@ -241,6 +242,7 @@ function tickTimers(G, p, dt) {
   if (p.muscle > 0) p.muscle = Math.max(0, p.muscle - dt);
   if (p.hot > 0) p.hot = Math.max(0, p.hot - dt);
   if (p.drunk > 0) p.drunk = Math.max(0, p.drunk - dt);
+  if (p.present > 0) p.present = Math.max(0, p.present - dt);
   // health: full again after a knock-down, and slowly back when left alone for a while
   if (p.hp < 1) {
     if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
@@ -382,6 +384,9 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'slide') {
+    p.present = PRESENT_T; p.meteorAcc = 0;
+    ev(G, 'present', { p: p.i });
   } else if (kind === 'drink') {
     ev(G, 'cheers', { p: p.i });
     for (const q of foes) { q.drunk = Math.max(q.drunk, DRUNK_T); ev(G, 'drunk', { p: q.i, by: p.i }); }
@@ -392,7 +397,7 @@ function trySuper(G, p) {
     p.muscle = MUSCLE_T;
     ev(G, 'flex', { p: p.i });
   } else if (kind === 'wind') {
-    G.wind.team = p.team; G.wind.t = 1.7;
+    G.wind.team = p.team; G.wind.t = 2.6;
   } else if (kind === 'ramen') {
     for (const q of G.players) if (q.team === p.team) {
       q.dash = Math.max(q.dash, 6); q.pow = Math.max(q.pow, 6);
@@ -731,6 +736,7 @@ function touchesPlayer(q, x, y, rad) {
 function hurt(G, p, q, how, x, y) {
   let dmg = 0.2 + 0.02 * CHARS[p.char].kck;          // four or five kicks
   if (how === 'burn') dmg = 0.15;
+  else if (how === 'meteor') dmg = 0.16;
   else if (how === 'punch') dmg *= 1.8;
   else if (p.muscle > 0) dmg *= 1.3;
   if (p.pow > 0) dmg *= 1.2;
@@ -744,8 +750,43 @@ function hurt(G, p, q, how, x, y) {
     ev(G, 'ko', { p: q.i, by: p.i });
   } else if (how === 'punch') bump(G, q, dir, 460, -300);
   else if (how === 'burn') bump(G, q, dir, 420, -280);
+  else if (how === 'meteor') bump(G, q, dir, 300, -300);
   else bump(G, q, dir, 280, -150);
 }
+// 冷徹プレゼン: shooting stars rain down on the other side (simulated where the match is run)
+function stepMeteors(G, dt) {
+  for (const p of G.players) {
+    if (p.present <= 0) continue;
+    const age = PRESENT_T - p.present;
+    if (age < 0.9 || age > 4.0 || G.phase !== 'play') continue;
+    p.meteorAcc = (p.meteorAcc || 0) + dt;
+    while (p.meteorAcc >= 0.15) {
+      p.meteorAcc -= 0.15;
+      const foes = G.players.filter(q => q.team !== p.team);
+      const half = p.team === 0 ? W / 2 + G.rng() * W / 2 : G.rng() * W / 2;
+      const aim = foes.length && G.rng() < 0.7 ? foes[Math.floor(G.rng() * foes.length)].x + (G.rng() - 0.5) * 320 : half;
+      const tx = clamp(aim, 30, W - 30), dir = G.rng() < 0.5 ? -1 : 1;
+      const sp = 950 + G.rng() * 250, ang = 1.15 + G.rng() * 0.15, vx = dir * Math.cos(ang) * sp, vy = Math.sin(ang) * sp;
+      const tt = (GROUND + 40) / vy;
+      G.meteors.push({ id: ++G.meteorSeq, x: tx - vx * tt, y: -40, vx, vy, team: p.team, by: p.i });
+    }
+  }
+  for (let i = G.meteors.length - 1; i >= 0; i--) {
+    const m = G.meteors[i];
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    let boom = m.y >= GROUND - 8;
+    if (!boom) for (const q of G.players) if (q.team !== m.team && touchesPlayer(q, m.x, m.y, 16)) { boom = true; break; }
+    if (!boom) continue;
+    const by = G.players[m.by] || G.players[0];
+    for (const q of G.players) {
+      if (q.team === m.team || q.stn > 0 || G.t - q.meteorT < 0.45) continue;
+      if (touchesPlayer(q, m.x, m.y, 44)) { q.meteorT = G.t; hurt(G, by, q, 'meteor', m.x, m.y); }
+    }
+    ev(G, 'meteor', { x: m.x | 0, y: Math.min(m.y, GROUND - 8) | 0 });
+    G.meteors.splice(i, 1);
+  }
+}
+
 // a push for someone who got hit (a joined phone moves its own player, so it is told too)
 function bump(G, q, dir, vx, vy) {
   if (q.owned) { q.vx = dir * vx; q.vy = vy; q.ground = false; }

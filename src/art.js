@@ -397,7 +397,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928', slide: '#7FB2FF' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -412,6 +412,59 @@ function moodOf(p, G, t) {
   const bl = (t * 0.9 + p.i * 0.37) % 4;
   if (bl < 0.09) return 'blink';
   return 'calm';
+}
+
+// 冷徹プレゼン: a big slide over the stand, the projector beam from 室橋, the pages turning
+function drawSlides(c, G, p, t) {
+  const age = PRESENT_T - p.present, team = TEAM_COL[p.team];
+  const pop = clamp(Math.min(age / 0.22, p.present / 0.3), 0, 1), k = pop < 1 ? 1 - Math.pow(1 - pop, 3) * 1.1 : 1;
+  if (k <= 0.02) return;
+  const cx = p.team === 0 ? W * 0.7 : W * 0.3, cy = 250, w = 540 * k, h = 300 * k;
+  const x0 = cx - w / 2, y0 = cy - h / 2;
+  // the beam
+  c.save();
+  const g = c.createLinearGradient(p.x, p.y, cx, cy);
+  g.addColorStop(0, 'rgba(190,230,255,.55)'); g.addColorStop(1, 'rgba(190,230,255,.06)');
+  c.fillStyle = g; c.beginPath(); c.moveTo(p.x + p.face * p.r * 0.6, p.y - p.r * 0.2); c.lineTo(x0, y0 + h); c.lineTo(x0 + w, y0 + h); c.closePath(); c.fill();
+  c.restore();
+  // the screen
+  c.fillStyle = 'rgba(0,0,0,.35)'; rrect(c, x0 + 8, y0 + 10, w, h, 14 * k); c.fill();
+  rrect(c, x0, y0, w, h, 14 * k); fillOut(c, '#FFFFFF', 4);
+  c.save(); rrect(c, x0, y0, w, h, 14 * k); c.clip();
+  c.fillStyle = team.main; c.fillRect(x0, y0, w, 58 * k);
+  c.fillStyle = team.deep; c.fillRect(x0, y0 + 58 * k, w, 6 * k);
+  const page = age < 0.9 ? 0 : age < 3.7 ? 1 : 2;
+  const title = ['本日のアジェンダ', '結論', 'まとめ'][page];
+  c.fillStyle = '#FFFFFF'; c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.font = `${Math.round(30 * k)}px ${FONT_SIGN}`; c.fillText(title, x0 + 24 * k, y0 + 31 * k);
+  c.fillStyle = '#1B2030'; c.font = `800 ${Math.round(26 * k)}px ${FONT_UI}`;
+  if (page === 0) {
+    ['1. 現状の分析', '2. 相手の課題', '3. 結論'].forEach((s, i) => c.fillText(s, x0 + 40 * k, y0 + (110 + i * 50) * k));
+  } else if (page === 1) {
+    c.font = `${Math.round(52 * k)}px ${FONT_SIGN}`; c.fillStyle = '#2A3C8F'; c.fillText('流星群、降らせます。', x0 + 28 * k, y0 + 116 * k);
+    // a chart going the right way
+    const bx = x0 + 60 * k, by = y0 + 270 * k;
+    [0.25, 0.4, 0.6, 0.85].forEach((v, i) => { c.fillStyle = i === 3 ? team.main : '#9AA6C2'; c.fillRect(bx + i * 62 * k, by - v * 110 * k, 40 * k, v * 110 * k); });
+    c.strokeStyle = '#E5322D'; c.lineWidth = 6 * k; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(bx, by - 40 * k); c.lineTo(bx + 230 * k, by - 120 * k); c.stroke();
+    c.beginPath(); c.moveTo(bx + 230 * k, by - 120 * k); c.lineTo(bx + 200 * k, by - 120 * k); c.moveTo(bx + 230 * k, by - 120 * k); c.lineTo(bx + 222 * k, by - 92 * k); c.stroke();
+    c.font = `800 ${Math.round(22 * k)}px ${FONT_UI}`; c.fillStyle = '#5A6380'; c.fillText('勝率：上がる一方', x0 + 330 * k, y0 + 230 * k);
+  } else {
+    c.font = `${Math.round(36 * k)}px ${FONT_SIGN}`; c.textAlign = 'center'; c.fillText('ご清聴ありがとう', cx, y0 + 150 * k); c.fillText('ございました', cx, y0 + 205 * k);
+  }
+  c.font = `800 ${Math.round(18 * k)}px ${FONT_UI}`; c.fillStyle = '#8A93AD'; c.textAlign = 'right'; c.fillText(`${page + 1} / 3`, x0 + w - 16 * k, y0 + h - 18 * k);
+  c.restore();
+}
+function drawMeteors(c, G, t) {
+  for (const m of G.meteors) {
+    const sp = Math.hypot(m.vx, m.vy) || 1, ux = m.vx / sp, uy = m.vy / sp, L = 150;
+    const g = c.createLinearGradient(m.x, m.y, m.x - ux * L, m.y - uy * L);
+    g.addColorStop(0, 'rgba(230,250,255,.95)'); g.addColorStop(0.4, 'rgba(120,200,255,.55)'); g.addColorStop(1, 'rgba(90,140,255,0)');
+    c.strokeStyle = g; c.lineWidth = 14; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(m.x - ux * L, m.y - uy * L); c.stroke();
+    c.fillStyle = 'rgba(160,220,255,.45)'; circ(c, m.x, m.y, 20); c.fill();
+    starShape(c, m.x, m.y, 15, 6.5, t * 8 + m.id); fillOut(c, '#FFFFFF', 2.5);
+  }
 }
 
 // a glass beer mug, in units where the mug is about s tall (drawn around its middle)
@@ -852,15 +905,15 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
   } else if (look === 'robot') {
     c.fillStyle = '#7D8DA3'; for (const [x, y] of [[-0.75, 0.05], [-0.62, 0.55], [0.85, 0.5]]) { circ(c, x, y, 0.06); c.fill(); }
   }
-  drawFace(c, ch, look, lw, t, lx, ly, mood, p.hot > 0);
+  drawFace(c, ch, look, lw, t, lx, ly, mood, p.hot > 0, p.present > 0);
   if (look === 'shades') drawShades(c, lw, t, lx, ly, mood);
 }
 
-function drawFace(c, ch, look, lw, t, lx, ly, mood, hot) {
+function drawFace(c, ch, look, lw, t, lx, ly, mood, hot, cold) {
   const eyes = look === 'ninja' ? [[0.2, -0.12], [0.66, -0.12]] : [[0.16, -0.1], [0.62, -0.1]];
   const robot = look === 'robot';
   if (look === 'shades') { drawShadesFace(c, lw, mood); return; }
-  if (look === 'center') { drawCenterFace(c, lw, t, lx, ly, mood); return; }
+  if (look === 'center') { drawCenterFace(c, lw, t, lx, ly, mood, cold); return; }
   if (look === 'longhair') { drawLongFace(c, lw, t, lx, ly, mood); return; }
   if (look === 'curtain') { drawKitaFace(c, lw, t, lx, ly, mood, hot); return; }
   if (look === 'masato') { drawMasatoFace(c, lw, t, lx, ly, mood); return; }
@@ -1179,9 +1232,10 @@ function drawLongFace(c, lw, t, lx, ly, mood) {
   }
 }
 // 室橋: narrow, sleepy eyes under heavy lids, and a sly half smile
-function drawCenterFace(c, lw, t, lx, ly, mood) {
+function drawCenterFace(c, lw, t, lx, ly, mood, cold) {
   const eyes = [[0.15, -0.06, 0.9], [0.63, -0.06, 1]];
   c.lineCap = 'round';
+  if (cold) { drawColdFace(c, lw, t, eyes); return; }
   for (const [ex, ey, sz] of eyes) {
     if (mood === 'blink' || mood === 'joy') {
       c.strokeStyle = OUT; c.lineWidth = lw * 1.2; c.beginPath();
@@ -1240,6 +1294,34 @@ function drawCenterFace(c, lw, t, lx, ly, mood) {
     c.quadraticCurveTo(mx + 0.2, my - 0.08, mx + 0.22, my - 0.1); c.stroke();
     c.lineWidth = lw * 0.6; c.beginPath(); c.moveTo(mx + 0.19, my - 0.13); c.quadraticCurveTo(mx + 0.25, my - 0.08, mx + 0.22, my - 0.03); c.stroke();
   }
+}
+// 室橋 while presenting: a shadow over the eyes, ice-cold slits with a glint, a flat line of a mouth
+function drawColdFace(c, lw, t, eyes) {
+  const g = c.createLinearGradient(0, -0.75, 0, 0.25);
+  g.addColorStop(0, 'rgba(20,30,70,.55)'); g.addColorStop(1, 'rgba(20,30,70,0)');
+  c.fillStyle = g; c.fillRect(-0.95, -0.75, 1.95, 1.0);
+  c.strokeStyle = 'rgba(30,40,90,.35)'; c.lineWidth = lw * 0.7;
+  for (let k = 0; k < 5; k++) { const x = 0.0 + k * 0.17; c.beginPath(); c.moveTo(x, -0.62); c.lineTo(x, -0.3 - (k % 2) * 0.08); c.stroke(); }
+  for (const [ex, ey, sz] of eyes) {
+    // a sharp slit, tilted down to the nose
+    c.fillStyle = '#FFFFFF';
+    c.beginPath(); c.moveTo(ex - 0.17 * sz, ey - 0.05); c.lineTo(ex + 0.17 * sz, ey + 0.03); c.lineTo(ex + 0.1 * sz, ey + 0.07); c.lineTo(ex - 0.15 * sz, ey + 0.02); c.closePath(); c.fill();
+    c.fillStyle = '#3B6FD6'; circ(c, ex + 0.02, ey + 0.025, 0.045 * sz); c.fill();
+    c.strokeStyle = OUT; c.lineWidth = lw * 1.6;
+    c.beginPath(); c.moveTo(ex - 0.19 * sz, ey - 0.07); c.lineTo(ex + 0.19 * sz, ey + 0.02); c.stroke();
+    // stern brows
+    c.lineWidth = lw * 1.5; c.beginPath();
+    if (ex < 0.4) { c.moveTo(ex - 0.14, ey - 0.33); c.lineTo(ex + 0.15, ey - 0.22); } else { c.moveTo(ex - 0.15, ey - 0.22); c.lineTo(ex + 0.14, ey - 0.33); }
+    c.stroke();
+  }
+  // the glint
+  const gl = 0.6 + 0.4 * Math.sin(t * 9);
+  c.fillStyle = `rgba(220,240,255,${gl})`; starShape(c, 0.8, -0.04, 0.12, 0.035, 0.3); c.fill();
+  // nose and a flat, thin mouth
+  c.strokeStyle = OUT; c.lineWidth = lw * 0.8;
+  c.beginPath(); c.moveTo(0.45, 0.1); c.quadraticCurveTo(0.54, 0.22, 0.43, 0.25); c.stroke();
+  c.lineWidth = lw;
+  c.beginPath(); c.moveTo(0.33, 0.47); c.lineTo(0.62, 0.45); c.lineTo(0.66, 0.48); c.stroke();
 }
 // round white sunglasses: the shine follows the ball
 function drawShades(c, lw, t, lx, ly, mood) {
@@ -1323,8 +1405,9 @@ function drawPortrait(cv, ci, team, mood) {
   const c = cv.getContext('2d'), n = cv.width;
   c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, n, n);
   const fake = { i: 0, char: ci, team: team || 0, face: 1, x: 0, y: 0, vx: 0, vy: 0, r: 1, scale: 1, ground: true, kick: { t: -1 }, armed: 0, giant: 0, frz: 0, stn: 0, gauge: 0 };
-  c.save(); c.translate(n * 0.52, n * 0.56); c.scale(n * 0.3, n * 0.3);
-  drawHead(c, CHARS[ci], fake, 0.075, 1.3, 0.7, 0.2, mood || 'calm');
+  const sz = 0.72 + 0.28 * (CHARS[ci].size || 1);
+  c.save(); c.translate(n * 0.52, n * (0.6 - 0.04 * sz)); c.scale(n * 0.3 * sz, n * 0.3 * sz);
+  drawHead(c, CHARS[ci], fake, 0.075 / sz, 1.3, 0.7, 0.2, mood || 'calm');
   c.restore();
 }
 
@@ -1499,10 +1582,12 @@ function drawMatch(c, G, t, tags, opts) {
   if (FX.shake > 0) { sx = (Math.random() - 0.5) * FX.shake * 24; sy = (Math.random() - 0.5) * FX.shake * 24; }
   worldTransform(c, sx, sy);
   drawGoalBack(c, G);
+  for (const p of G.players) if (p.present > 0) drawSlides(c, G, p, t);
   drawItems(c, G, t);
   for (const p of G.players) drawPlayer(c, p, G, t, tags ? tags[p.i] : null);
   drawFakes(c, G);
   drawBall(c, G.ball, t);
+  drawMeteors(c, G, t);
   drawGoalFront(c, G);
   fxDraw(c);
   worldTransform(c);

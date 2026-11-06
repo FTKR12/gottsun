@@ -133,7 +133,8 @@ function plan(G, p, c, lv) {
     if (ballNear && !threat) role = 'att';
     // on its way into our goal: guard it (a low one in front still gets kicked away)
     else if (threat) role = (ballNear && (b.x - p.x) * dir > 0 && b.y > p.y - p.r * 0.2 && Math.abs(b.vx) < 700) ? 'att' : 'def';
-    else role = myT < foeT - 0.08 ? 'att' : 'def';
+    // go for it when we are the nearer one (a fast player is not drawn far out by being fast)
+    else role = (Math.abs(b.x - p.x) < Math.min(...foes.map(q => Math.abs(b.x - q.x))) - 30 || myT < foeT - 0.5) ? 'att' : 'def';
   } else if (threat) {
     // on its way into our goal: whoever of us is nearest our goal guards it
     const near = q => Math.abs(q.x - ownX);
@@ -160,6 +161,7 @@ function plan(G, p, c, lv) {
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
     else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'slide') c.wantSuper = foeNear || !!threat || attackThird;
     else if (kind === 'drink') c.wantSuper = (foeNear && (ballOurHalf || attackThird)) || !!threat;
     else if (kind === 'hot') c.wantSuper = (d < 420 && front) || !!threat;
     else if (kind === 'muscle') c.wantSuper = (d < 380 && front) || !!threat;

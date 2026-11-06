@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1F5E3A">
-<meta name="gottsun-build" content="08e1719bce">
+<meta name="gottsun-build" content="afd1c2dcb1">
 <meta name="description" content="大きな頭でヘディング！4人まで遊べるあたまサッカー。CPU対戦、1台でみんなで、スマホを合言葉でつないで遊べます。">
 <title>ゴッツンサッカー</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
@@ -523,7 +523,8 @@ const GAUGE_TOUCH = 0.05;  // ... per touch of the ball
 const GAUGE_CONCEDE = 0.18;
 const HIT_STUN = 2.6;       // knocked down this long when the health runs out
 const HOT_T = 6;           // まっかっかヘッド
-const DRUNK_T = 5;         // のめのめ攻撃: tipsy this long
+const DRUNK_T = 5;
+const PRESENT_T = 4.6;     // 冷徹プレゼン: the slides are up this long (the meteors fall in the middle of it)         // のめのめ攻撃: tipsy this long
 const MUSCLE_T = 7;        // ムキムキうで lasts this long (the first part is the flex)
 const FIST_R = 0.4;        // the muscle fist, in head radii// ... for the team that let a goal in
 
@@ -533,39 +534,39 @@ const TEAM_COL = [
 ];
 
 // stat (1..5) to physics: wide steps, so every character plays differently
-const spdOf = s => 300 + 52 * s;        // run speed, px/s: 352 .. 560
-const jmpOf = s => 830 + 72 * s;        // take-off speed: 902 .. 1190 (jump 160 .. 278 px)
-const kckOf = s => 920 + 125 * s;       // kick speed: 1045 .. 1545
+const spdOf = s => 270 + 72 * s;        // run speed, px/s: 342 .. 630
+const jmpOf = s => 760 + 104 * s;       // take-off speed: 864 .. 1280 (jump 146 .. 321 px)
+const kckOf = s => 850 + 165 * s;       // kick speed: 1015 .. 1675
 
 // ---- characters (all original) ----
 // size: head size (1 = normal). A big head blocks and heads more, a small one is quick and light.
 // body: the same as pips for the menus. look: what art.js draws on the head. sup: the super (SUPERS)
 const CHARS = [
-  { id: 'rekka', name: 'レッカ', type: 'バランス型', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'fire', mass: 1,
+  { id: 'rekka', name: 'レッカ', type: 'バランス型', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'fire', mass: 1,
     skin: '#FFD3B0', hair: '#E8361E', hair2: '#FFB21E', look: 'spiky', blurb: 'なんでもこなす。必殺の火の玉でゴールをねらう' },
-  { id: 'yukimi', name: 'ユキミ', type: 'テクニック型', size: 0.93, body: 2, spd: 3, jmp: 4, kck: 3, sup: 'ice', mass: 0.9,
-    skin: '#FFE2D2', hair: '#BFE6FF', hair2: '#FFFFFF', look: 'bob', blurb: '小がらで身軽。ジャンプもキックもそこそこ' },
-  { id: 'gorou', name: 'ゴロウ', type: 'パワー型', size: 1.07, body: 4, spd: 2, jmp: 2, kck: 5, sup: 'thunder', mass: 1.3,
-    skin: '#F2C79A', hair: '#5B4A7A', hair2: '#FFD21E', look: 'cloud', blurb: 'キックはいちばん強い。でも足はおそい' },
-  { id: 'kagemaru', name: 'カゲマル', type: 'スピード型', size: 0.9, body: 2, spd: 5, jmp: 3, kck: 3, sup: 'clone', mass: 0.85,
-    skin: '#F5CDA8', hair: '#2B3245', hair2: '#C8CED9', look: 'ninja', blurb: 'だれよりも速い。体が小さく、キックは弱め' },
-  { id: 'dosukoi', name: 'ドスコイ', type: '巨漢', size: 1.18, body: 5, spd: 1, jmp: 1, kck: 4, sup: 'giant', mass: 1.8,
+  { id: 'yukimi', name: 'ユキミ', type: 'テクニック型', size: 0.88, body: 2, spd: 3, jmp: 5, kck: 2, sup: 'ice', mass: 0.85,
+    skin: '#FFE2D2', hair: '#BFE6FF', hair2: '#FFFFFF', look: 'bob', blurb: '小がらで身軽。ジャンプはとても高いけれど、キックは弱め' },
+  { id: 'gorou', name: 'ゴロウ', type: 'パワー型', size: 1.05, body: 4, spd: 2, jmp: 1, kck: 5, sup: 'thunder', mass: 1.4,
+    skin: '#F2C79A', hair: '#5B4A7A', hair2: '#FFD21E', look: 'cloud', blurb: 'キックはいちばん強い。でも足はおそく、ジャンプも低い' },
+  { id: 'kagemaru', name: 'カゲマル', type: 'スピード型', size: 0.86, body: 2, spd: 5, jmp: 4, kck: 3, sup: 'clone', mass: 0.8,
+    skin: '#F5CDA8', hair: '#2B3245', hair2: '#C8CED9', look: 'ninja', blurb: 'だれよりも速い。体は小さいけれど、ジャンプもそこそこ' },
+  { id: 'dosukoi', name: 'ドスコイ', type: '巨漢', size: 1.28, body: 5, spd: 1, jmp: 1, kck: 3, sup: 'giant', mass: 2,
     skin: '#F8CFA6', hair: '#1E1E24', hair2: '#1E1E24', look: 'sumo', blurb: '頭がいちばん大きく、ゴール前のかべ。とてもおそい' },
-  { id: 'popo', name: 'ポポ', type: 'ジャンプ型', size: 0.85, body: 1, spd: 4, jmp: 5, kck: 2, sup: 'ghost', mass: 0.7, floaty: 0.84,
+  { id: 'popo', name: 'ポポ', type: 'ジャンプ型', size: 0.8, body: 1, spd: 4, jmp: 5, kck: 2, sup: 'ghost', mass: 0.7, floaty: 0.8,
     skin: '#EEF0FF', hair: '#C7B8FF', hair2: '#FF8FB8', look: 'ghost', blurb: 'いちばん小さく、ふわっと高くとぶ。キックは弱い' },
-  { id: 'robota', name: 'ロボ太', type: '守備型', size: 1.1, body: 4, spd: 2, jmp: 3, kck: 3, sup: 'rocket', mass: 1.5,
+  { id: 'robota', name: 'ロボ太', type: '守備型', size: 1.14, body: 4, spd: 2, jmp: 2, kck: 3, sup: 'rocket', mass: 1.8,
     skin: '#B9C6D6', hair: '#6F8196', hair2: '#45E0FF', look: 'robot', blurb: '大きくて重い。当たり負けしない守りの名人' },
-  { id: 'fuuta', name: 'フウタ', type: 'スピード＆ジャンプ', size: 0.94, body: 2, spd: 4, jmp: 4, kck: 3, sup: 'wind', mass: 0.9,
+  { id: 'fuuta', name: 'フウタ', type: 'スピード＆ジャンプ', size: 0.92, body: 2, spd: 4, jmp: 4, kck: 3, sup: 'wind', mass: 0.9,
     skin: '#FFD8B8', hair: '#39B36B', hair2: '#9CF0B8', look: 'wind', blurb: '速さとジャンプのいいとこどり。キックは軽め' },
-  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'muscle', mass: 1,
+  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.12, body: 4, spd: 3, jmp: 2, kck: 4, sup: 'muscle', mass: 1.6,
     skin: '#F3CFAE', hair: '#1D1A21', hair2: '#3B3542', look: 'shades', blurb: '年齢不明のごつい少年' },
-  { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'ramen', mass: 1,
+  { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 5, jmp: 3, kck: 4, sup: 'slide', mass: 1,
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'いじり方をミスるとキレるので要注意' },
-  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.95, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 1,
+  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.92, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 0.9,
     skin: '#F4D5BC', hair: '#E3C07A', hair2: '#6E4E30', look: 'longhair', blurb: '金髪でクールな手足長男' },
-  { id: 'kitahara', name: '北原', type: 'タマル', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1,
+  { id: 'kitahara', name: '北原', type: 'タマル', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1.1,
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
-  { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 3, jmp: 4, kck: 3, sup: 'drink', mass: 1, beer: true,
+  { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'drink', mass: 1, beer: true,
     skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
@@ -581,6 +582,7 @@ const SUPERS = {
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  slide:   { name: '冷徹プレゼン',     icon: '📊', armed: false, desc: 'パワポを発動！ 冷徹な顔でスライドを見せつけると、相手チームの上に流星群がふりそそぐ' },
   drink:   { name: 'のめのめ攻撃',     icon: '🍺', armed: false, desc: '相手チーム全員にビールをのませる！ のまされた相手は5秒間よっぱらってフラフラ' },
   hot:     { name: 'まっかっかヘッド', icon: '🥵', armed: false, desc: '顔が真っ赤に！ 6秒間、頭がアツアツになって、当たったボールはロケットみたいに飛んでいく。さわった相手は「あちっ！」' },
   muscle:  { name: 'ムキムキうで',     icon: '💪', armed: false, desc: '7秒間、うでがムキムキに！ キックボタンでパンチ。ボールをはじき返し、当たった相手には大ダメージ' },
@@ -648,7 +650,7 @@ function newMatch(setup) {
     setup, seed, rng: mkRng(seed), t: 0, tick: 0,
     phase: 'countdown', phaseT: 0,
     clock: setup.time || 90, ot: false, result: null,
-    score: [0, 0], players: [], ball: null, fakes: [], items: [],
+    score: [0, 0], players: [], ball: null, fakes: [], items: [], meteors: [], meteorSeq: 0,
     itemT: 9, itemSeq: 0, fakeSeq: 0,
     goalH: [GOAL_H, GOAL_H], goalFx: [{ k: '', t: 0 }, { k: '', t: 0 }], floatT: 0, bigBallT: 0,
     wind: { team: -1, t: 0 },
@@ -678,8 +680,8 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0,
-    hp: 1, hurtT: -9, burnT: -9,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0, present: 0,
+    hp: 1, hurtT: -9, burnT: -9, meteorT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
     cpu: null, away: false,
@@ -733,7 +735,7 @@ function circRect(cx, cy, r, x0, y0, x1, y1) {
 }
 function speedMul(p) { return (p.dash > 0 ? 1.32 : 1) * (p.giant > 0 ? 0.92 : 1) * (p.cpuSpeed || 1); }
 function jumpMul(p) { return (p.dash > 0 ? 1.12 : 1) * (p.giant > 0 ? 0.95 : 1); }
-function massOf(p) { return CHARS[p.char].mass * p.scale * p.scale * (p.muscle > 0 ? 2 : 1); }
+function massOf(p) { return Math.sqrt(CHARS[p.char].mass) * p.scale * (p.muscle > 0 ? 2 : 1); }
 // ムキムキうで: where the front fist is. A short flex first, then guarding the chin, punching out with the kick
 function fistAt(p, kt) {
   const r = p.r;
@@ -786,7 +788,7 @@ function resetPositions(G, first) {
   b.x = W / 2; b.y = 200; b.vx = 0; b.vy = 0; b.av = 0; b.mode = ''; b.modeT = 0; b.held = true; b.restT = 0;
   b.last = -1; b.lastTeam = -1; b.prevX = b.x; b.prevY = b.y;
   b.teamLast = [-1, -1]; b.teamLastT = [-9, -9];
-  G.fakes.length = 0;
+  G.fakes.length = 0; G.meteors.length = 0;
   G.wind.t = 0;
   if (!first) ev(G, 'reset', { ep: G.epoch });
 }
@@ -812,6 +814,7 @@ function step(G, inputs) {
   }
   separatePlayers(G);
   hitPlayers(G);
+  stepMeteors(G, DT);
   if (!G.ball.held) {
     for (let s = 0; s < SUB; s++) ballSub(G, DT / SUB, s);
     stepFakes(G, DT);
@@ -874,6 +877,7 @@ function tickTimers(G, p, dt) {
   if (p.muscle > 0) p.muscle = Math.max(0, p.muscle - dt);
   if (p.hot > 0) p.hot = Math.max(0, p.hot - dt);
   if (p.drunk > 0) p.drunk = Math.max(0, p.drunk - dt);
+  if (p.present > 0) p.present = Math.max(0, p.present - dt);
   // health: full again after a knock-down, and slowly back when left alone for a while
   if (p.hp < 1) {
     if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
@@ -1015,6 +1019,9 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'slide') {
+    p.present = PRESENT_T; p.meteorAcc = 0;
+    ev(G, 'present', { p: p.i });
   } else if (kind === 'drink') {
     ev(G, 'cheers', { p: p.i });
     for (const q of foes) { q.drunk = Math.max(q.drunk, DRUNK_T); ev(G, 'drunk', { p: q.i, by: p.i }); }
@@ -1025,7 +1032,7 @@ function trySuper(G, p) {
     p.muscle = MUSCLE_T;
     ev(G, 'flex', { p: p.i });
   } else if (kind === 'wind') {
-    G.wind.team = p.team; G.wind.t = 1.7;
+    G.wind.team = p.team; G.wind.t = 2.6;
   } else if (kind === 'ramen') {
     for (const q of G.players) if (q.team === p.team) {
       q.dash = Math.max(q.dash, 6); q.pow = Math.max(q.pow, 6);
@@ -1364,6 +1371,7 @@ function touchesPlayer(q, x, y, rad) {
 function hurt(G, p, q, how, x, y) {
   let dmg = 0.2 + 0.02 * CHARS[p.char].kck;          // four or five kicks
   if (how === 'burn') dmg = 0.15;
+  else if (how === 'meteor') dmg = 0.16;
   else if (how === 'punch') dmg *= 1.8;
   else if (p.muscle > 0) dmg *= 1.3;
   if (p.pow > 0) dmg *= 1.2;
@@ -1377,8 +1385,43 @@ function hurt(G, p, q, how, x, y) {
     ev(G, 'ko', { p: q.i, by: p.i });
   } else if (how === 'punch') bump(G, q, dir, 460, -300);
   else if (how === 'burn') bump(G, q, dir, 420, -280);
+  else if (how === 'meteor') bump(G, q, dir, 300, -300);
   else bump(G, q, dir, 280, -150);
 }
+// 冷徹プレゼン: shooting stars rain down on the other side (simulated where the match is run)
+function stepMeteors(G, dt) {
+  for (const p of G.players) {
+    if (p.present <= 0) continue;
+    const age = PRESENT_T - p.present;
+    if (age < 0.9 || age > 4.0 || G.phase !== 'play') continue;
+    p.meteorAcc = (p.meteorAcc || 0) + dt;
+    while (p.meteorAcc >= 0.15) {
+      p.meteorAcc -= 0.15;
+      const foes = G.players.filter(q => q.team !== p.team);
+      const half = p.team === 0 ? W / 2 + G.rng() * W / 2 : G.rng() * W / 2;
+      const aim = foes.length && G.rng() < 0.7 ? foes[Math.floor(G.rng() * foes.length)].x + (G.rng() - 0.5) * 320 : half;
+      const tx = clamp(aim, 30, W - 30), dir = G.rng() < 0.5 ? -1 : 1;
+      const sp = 950 + G.rng() * 250, ang = 1.15 + G.rng() * 0.15, vx = dir * Math.cos(ang) * sp, vy = Math.sin(ang) * sp;
+      const tt = (GROUND + 40) / vy;
+      G.meteors.push({ id: ++G.meteorSeq, x: tx - vx * tt, y: -40, vx, vy, team: p.team, by: p.i });
+    }
+  }
+  for (let i = G.meteors.length - 1; i >= 0; i--) {
+    const m = G.meteors[i];
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    let boom = m.y >= GROUND - 8;
+    if (!boom) for (const q of G.players) if (q.team !== m.team && touchesPlayer(q, m.x, m.y, 16)) { boom = true; break; }
+    if (!boom) continue;
+    const by = G.players[m.by] || G.players[0];
+    for (const q of G.players) {
+      if (q.team === m.team || q.stn > 0 || G.t - q.meteorT < 0.45) continue;
+      if (touchesPlayer(q, m.x, m.y, 44)) { q.meteorT = G.t; hurt(G, by, q, 'meteor', m.x, m.y); }
+    }
+    ev(G, 'meteor', { x: m.x | 0, y: Math.min(m.y, GROUND - 8) | 0 });
+    G.meteors.splice(i, 1);
+  }
+}
+
 // a push for someone who got hit (a joined phone moves its own player, so it is told too)
 function bump(G, q, dir, vx, vy) {
   if (q.owned) { q.vx = dir * vx; q.vy = vy; q.ground = false; }
@@ -1708,7 +1751,8 @@ function plan(G, p, c, lv) {
     if (ballNear && !threat) role = 'att';
     // on its way into our goal: guard it (a low one in front still gets kicked away)
     else if (threat) role = (ballNear && (b.x - p.x) * dir > 0 && b.y > p.y - p.r * 0.2 && Math.abs(b.vx) < 700) ? 'att' : 'def';
-    else role = myT < foeT - 0.08 ? 'att' : 'def';
+    // go for it when we are the nearer one (a fast player is not drawn far out by being fast)
+    else role = (Math.abs(b.x - p.x) < Math.min(...foes.map(q => Math.abs(b.x - q.x))) - 30 || myT < foeT - 0.5) ? 'att' : 'def';
   } else if (threat) {
     // on its way into our goal: whoever of us is nearest our goal guards it
     const near = q => Math.abs(q.x - ownX);
@@ -1735,6 +1779,7 @@ function plan(G, p, c, lv) {
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
     else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'slide') c.wantSuper = foeNear || !!threat || attackThird;
     else if (kind === 'drink') c.wantSuper = (foeNear && (ballOurHalf || attackThird)) || !!threat;
     else if (kind === 'hot') c.wantSuper = (d < 420 && front) || !!threat;
     else if (kind === 'muscle') c.wantSuper = (d < 380 && front) || !!threat;
@@ -2295,7 +2340,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928', slide: '#7FB2FF' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -2310,6 +2355,59 @@ function moodOf(p, G, t) {
   const bl = (t * 0.9 + p.i * 0.37) % 4;
   if (bl < 0.09) return 'blink';
   return 'calm';
+}
+
+// 冷徹プレゼン: a big slide over the stand, the projector beam from 室橋, the pages turning
+function drawSlides(c, G, p, t) {
+  const age = PRESENT_T - p.present, team = TEAM_COL[p.team];
+  const pop = clamp(Math.min(age / 0.22, p.present / 0.3), 0, 1), k = pop < 1 ? 1 - Math.pow(1 - pop, 3) * 1.1 : 1;
+  if (k <= 0.02) return;
+  const cx = p.team === 0 ? W * 0.7 : W * 0.3, cy = 250, w = 540 * k, h = 300 * k;
+  const x0 = cx - w / 2, y0 = cy - h / 2;
+  // the beam
+  c.save();
+  const g = c.createLinearGradient(p.x, p.y, cx, cy);
+  g.addColorStop(0, 'rgba(190,230,255,.55)'); g.addColorStop(1, 'rgba(190,230,255,.06)');
+  c.fillStyle = g; c.beginPath(); c.moveTo(p.x + p.face * p.r * 0.6, p.y - p.r * 0.2); c.lineTo(x0, y0 + h); c.lineTo(x0 + w, y0 + h); c.closePath(); c.fill();
+  c.restore();
+  // the screen
+  c.fillStyle = 'rgba(0,0,0,.35)'; rrect(c, x0 + 8, y0 + 10, w, h, 14 * k); c.fill();
+  rrect(c, x0, y0, w, h, 14 * k); fillOut(c, '#FFFFFF', 4);
+  c.save(); rrect(c, x0, y0, w, h, 14 * k); c.clip();
+  c.fillStyle = team.main; c.fillRect(x0, y0, w, 58 * k);
+  c.fillStyle = team.deep; c.fillRect(x0, y0 + 58 * k, w, 6 * k);
+  const page = age < 0.9 ? 0 : age < 3.7 ? 1 : 2;
+  const title = ['本日のアジェンダ', '結論', 'まとめ'][page];
+  c.fillStyle = '#FFFFFF'; c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.font = `${Math.round(30 * k)}px ${FONT_SIGN}`; c.fillText(title, x0 + 24 * k, y0 + 31 * k);
+  c.fillStyle = '#1B2030'; c.font = `800 ${Math.round(26 * k)}px ${FONT_UI}`;
+  if (page === 0) {
+    ['1. 現状の分析', '2. 相手の課題', '3. 結論'].forEach((s, i) => c.fillText(s, x0 + 40 * k, y0 + (110 + i * 50) * k));
+  } else if (page === 1) {
+    c.font = `${Math.round(52 * k)}px ${FONT_SIGN}`; c.fillStyle = '#2A3C8F'; c.fillText('流星群、降らせます。', x0 + 28 * k, y0 + 116 * k);
+    // a chart going the right way
+    const bx = x0 + 60 * k, by = y0 + 270 * k;
+    [0.25, 0.4, 0.6, 0.85].forEach((v, i) => { c.fillStyle = i === 3 ? team.main : '#9AA6C2'; c.fillRect(bx + i * 62 * k, by - v * 110 * k, 40 * k, v * 110 * k); });
+    c.strokeStyle = '#E5322D'; c.lineWidth = 6 * k; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(bx, by - 40 * k); c.lineTo(bx + 230 * k, by - 120 * k); c.stroke();
+    c.beginPath(); c.moveTo(bx + 230 * k, by - 120 * k); c.lineTo(bx + 200 * k, by - 120 * k); c.moveTo(bx + 230 * k, by - 120 * k); c.lineTo(bx + 222 * k, by - 92 * k); c.stroke();
+    c.font = `800 ${Math.round(22 * k)}px ${FONT_UI}`; c.fillStyle = '#5A6380'; c.fillText('勝率：上がる一方', x0 + 330 * k, y0 + 230 * k);
+  } else {
+    c.font = `${Math.round(36 * k)}px ${FONT_SIGN}`; c.textAlign = 'center'; c.fillText('ご清聴ありがとう', cx, y0 + 150 * k); c.fillText('ございました', cx, y0 + 205 * k);
+  }
+  c.font = `800 ${Math.round(18 * k)}px ${FONT_UI}`; c.fillStyle = '#8A93AD'; c.textAlign = 'right'; c.fillText(`${page + 1} / 3`, x0 + w - 16 * k, y0 + h - 18 * k);
+  c.restore();
+}
+function drawMeteors(c, G, t) {
+  for (const m of G.meteors) {
+    const sp = Math.hypot(m.vx, m.vy) || 1, ux = m.vx / sp, uy = m.vy / sp, L = 150;
+    const g = c.createLinearGradient(m.x, m.y, m.x - ux * L, m.y - uy * L);
+    g.addColorStop(0, 'rgba(230,250,255,.95)'); g.addColorStop(0.4, 'rgba(120,200,255,.55)'); g.addColorStop(1, 'rgba(90,140,255,0)');
+    c.strokeStyle = g; c.lineWidth = 14; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(m.x - ux * L, m.y - uy * L); c.stroke();
+    c.fillStyle = 'rgba(160,220,255,.45)'; circ(c, m.x, m.y, 20); c.fill();
+    starShape(c, m.x, m.y, 15, 6.5, t * 8 + m.id); fillOut(c, '#FFFFFF', 2.5);
+  }
 }
 
 // a glass beer mug, in units where the mug is about s tall (drawn around its middle)
@@ -2750,15 +2848,15 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
   } else if (look === 'robot') {
     c.fillStyle = '#7D8DA3'; for (const [x, y] of [[-0.75, 0.05], [-0.62, 0.55], [0.85, 0.5]]) { circ(c, x, y, 0.06); c.fill(); }
   }
-  drawFace(c, ch, look, lw, t, lx, ly, mood, p.hot > 0);
+  drawFace(c, ch, look, lw, t, lx, ly, mood, p.hot > 0, p.present > 0);
   if (look === 'shades') drawShades(c, lw, t, lx, ly, mood);
 }
 
-function drawFace(c, ch, look, lw, t, lx, ly, mood, hot) {
+function drawFace(c, ch, look, lw, t, lx, ly, mood, hot, cold) {
   const eyes = look === 'ninja' ? [[0.2, -0.12], [0.66, -0.12]] : [[0.16, -0.1], [0.62, -0.1]];
   const robot = look === 'robot';
   if (look === 'shades') { drawShadesFace(c, lw, mood); return; }
-  if (look === 'center') { drawCenterFace(c, lw, t, lx, ly, mood); return; }
+  if (look === 'center') { drawCenterFace(c, lw, t, lx, ly, mood, cold); return; }
   if (look === 'longhair') { drawLongFace(c, lw, t, lx, ly, mood); return; }
   if (look === 'curtain') { drawKitaFace(c, lw, t, lx, ly, mood, hot); return; }
   if (look === 'masato') { drawMasatoFace(c, lw, t, lx, ly, mood); return; }
@@ -3077,9 +3175,10 @@ function drawLongFace(c, lw, t, lx, ly, mood) {
   }
 }
 // 室橋: narrow, sleepy eyes under heavy lids, and a sly half smile
-function drawCenterFace(c, lw, t, lx, ly, mood) {
+function drawCenterFace(c, lw, t, lx, ly, mood, cold) {
   const eyes = [[0.15, -0.06, 0.9], [0.63, -0.06, 1]];
   c.lineCap = 'round';
+  if (cold) { drawColdFace(c, lw, t, eyes); return; }
   for (const [ex, ey, sz] of eyes) {
     if (mood === 'blink' || mood === 'joy') {
       c.strokeStyle = OUT; c.lineWidth = lw * 1.2; c.beginPath();
@@ -3138,6 +3237,34 @@ function drawCenterFace(c, lw, t, lx, ly, mood) {
     c.quadraticCurveTo(mx + 0.2, my - 0.08, mx + 0.22, my - 0.1); c.stroke();
     c.lineWidth = lw * 0.6; c.beginPath(); c.moveTo(mx + 0.19, my - 0.13); c.quadraticCurveTo(mx + 0.25, my - 0.08, mx + 0.22, my - 0.03); c.stroke();
   }
+}
+// 室橋 while presenting: a shadow over the eyes, ice-cold slits with a glint, a flat line of a mouth
+function drawColdFace(c, lw, t, eyes) {
+  const g = c.createLinearGradient(0, -0.75, 0, 0.25);
+  g.addColorStop(0, 'rgba(20,30,70,.55)'); g.addColorStop(1, 'rgba(20,30,70,0)');
+  c.fillStyle = g; c.fillRect(-0.95, -0.75, 1.95, 1.0);
+  c.strokeStyle = 'rgba(30,40,90,.35)'; c.lineWidth = lw * 0.7;
+  for (let k = 0; k < 5; k++) { const x = 0.0 + k * 0.17; c.beginPath(); c.moveTo(x, -0.62); c.lineTo(x, -0.3 - (k % 2) * 0.08); c.stroke(); }
+  for (const [ex, ey, sz] of eyes) {
+    // a sharp slit, tilted down to the nose
+    c.fillStyle = '#FFFFFF';
+    c.beginPath(); c.moveTo(ex - 0.17 * sz, ey - 0.05); c.lineTo(ex + 0.17 * sz, ey + 0.03); c.lineTo(ex + 0.1 * sz, ey + 0.07); c.lineTo(ex - 0.15 * sz, ey + 0.02); c.closePath(); c.fill();
+    c.fillStyle = '#3B6FD6'; circ(c, ex + 0.02, ey + 0.025, 0.045 * sz); c.fill();
+    c.strokeStyle = OUT; c.lineWidth = lw * 1.6;
+    c.beginPath(); c.moveTo(ex - 0.19 * sz, ey - 0.07); c.lineTo(ex + 0.19 * sz, ey + 0.02); c.stroke();
+    // stern brows
+    c.lineWidth = lw * 1.5; c.beginPath();
+    if (ex < 0.4) { c.moveTo(ex - 0.14, ey - 0.33); c.lineTo(ex + 0.15, ey - 0.22); } else { c.moveTo(ex - 0.15, ey - 0.22); c.lineTo(ex + 0.14, ey - 0.33); }
+    c.stroke();
+  }
+  // the glint
+  const gl = 0.6 + 0.4 * Math.sin(t * 9);
+  c.fillStyle = `rgba(220,240,255,${gl})`; starShape(c, 0.8, -0.04, 0.12, 0.035, 0.3); c.fill();
+  // nose and a flat, thin mouth
+  c.strokeStyle = OUT; c.lineWidth = lw * 0.8;
+  c.beginPath(); c.moveTo(0.45, 0.1); c.quadraticCurveTo(0.54, 0.22, 0.43, 0.25); c.stroke();
+  c.lineWidth = lw;
+  c.beginPath(); c.moveTo(0.33, 0.47); c.lineTo(0.62, 0.45); c.lineTo(0.66, 0.48); c.stroke();
 }
 // round white sunglasses: the shine follows the ball
 function drawShades(c, lw, t, lx, ly, mood) {
@@ -3221,8 +3348,9 @@ function drawPortrait(cv, ci, team, mood) {
   const c = cv.getContext('2d'), n = cv.width;
   c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, n, n);
   const fake = { i: 0, char: ci, team: team || 0, face: 1, x: 0, y: 0, vx: 0, vy: 0, r: 1, scale: 1, ground: true, kick: { t: -1 }, armed: 0, giant: 0, frz: 0, stn: 0, gauge: 0 };
-  c.save(); c.translate(n * 0.52, n * 0.56); c.scale(n * 0.3, n * 0.3);
-  drawHead(c, CHARS[ci], fake, 0.075, 1.3, 0.7, 0.2, mood || 'calm');
+  const sz = 0.72 + 0.28 * (CHARS[ci].size || 1);
+  c.save(); c.translate(n * 0.52, n * (0.6 - 0.04 * sz)); c.scale(n * 0.3 * sz, n * 0.3 * sz);
+  drawHead(c, CHARS[ci], fake, 0.075 / sz, 1.3, 0.7, 0.2, mood || 'calm');
   c.restore();
 }
 
@@ -3397,10 +3525,12 @@ function drawMatch(c, G, t, tags, opts) {
   if (FX.shake > 0) { sx = (Math.random() - 0.5) * FX.shake * 24; sy = (Math.random() - 0.5) * FX.shake * 24; }
   worldTransform(c, sx, sy);
   drawGoalBack(c, G);
+  for (const p of G.players) if (p.present > 0) drawSlides(c, G, p, t);
   drawItems(c, G, t);
   for (const p of G.players) drawPlayer(c, p, G, t, tags ? tags[p.i] : null);
   drawFakes(c, G);
   drawBall(c, G.ball, t);
+  drawMeteors(c, G, t);
   drawGoalFront(c, G);
   fxDraw(c);
   worldTransform(c);
@@ -3531,6 +3661,8 @@ const Sound = (() => {
     wind() { noise({ ft: 'bandpass', f: 300, f2: 1100, d: 1.6, v: 0.3, q: 0.5, a: 0.2 }); },
     dazzle() { for (let i = 0; i < 6; i++) tone({ f: 1400 + i * 380, d: 0.18, v: 0.06, at: i * 0.035, type: 'triangle' }); tone({ f: 300, f2: 2400, d: 0.35, v: 0.06, type: 'sine' }); },
     stretch() { tone({ f: 260, f2: 1300, d: 0.7, v: 0.12, type: 'sine', vib: 6, vibD: 25 }); tone({ f: 520, f2: 2000, d: 0.5, v: 0.05, type: 'triangle', at: 0.15 }); },
+    present() { noise({ ft: 'highpass', f: 3000, d: 0.04, v: 0.25 }); tone({ f: 880, d: 0.08, v: 0.1, type: 'square', at: 0.02 }); tone({ f: 330, f2: 1650, d: 0.6, v: 0.07, type: 'sine', at: 0.1 }); },
+    meteor() { if (!rate('meteor', 0.07)) return; noise({ ft: 'lowpass', f: 1800, f2: 300, d: 0.3, v: 0.28 }); tone({ f: 1800, f2: 400, d: 0.18, v: 0.05, type: 'triangle' }); },
     cheers() { for (const [f, at] of [[2093, 0], [2637, 0.05], [3136, 0.1]]) tone({ f, d: 0.25, v: 0.07, at, type: 'triangle' }); tone({ f: 523, d: 0.2, v: 0.08, at: 0.2, type: 'square' }); tone({ f: 659, d: 0.3, v: 0.08, at: 0.32, type: 'square' }); },
     hic() { if (!rate('hic', 0.2)) return; tone({ f: 420, f2: 900, d: 0.12, v: 0.1, type: 'triangle' }); },
     boil() { noise({ ft: 'bandpass', f: 700, f2: 2400, d: 0.6, v: 0.25, q: 0.8 }); tone({ f: 200, f2: 900, d: 0.45, v: 0.12, type: 'sawtooth' }); },
@@ -4093,8 +4225,9 @@ function encodeSnap(G, seq) {
     t: 's', q: seq, T: r3(G.t), ph: PH[G.phase], pt: r2(G.phaseT), ck: r2(G.clock), ot: G.ot ? 1 : 0, sc: G.score, ep: G.epoch,
     b: [r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot), b.held ? 1 : 0, Math.max(0, MODES.indexOf(b.mode)), r2(b.modeT), b.modeTeam, b.last, b.r, b.ghostP, r2(b.heatT || 0)],
     f: G.fakes.map(f => [f.id, r0(f.x), r0(f.y), r0(f.vx), r0(f.vy)]),
+    mt: G.meteors.map(m => [m.id, r0(m.x), r0(m.y), r0(m.vx), r0(m.vy), m.team]),
     p: G.players.map(p => [r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), p.ground ? 1 : 0, p.kick.t >= 0 ? r3(p.kick.t) : -1, p.kick.seq,
-      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp), r2(p.hot), r2(p.drunk)]),
+      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp), r2(p.hot), r2(p.drunk), r2(p.present)]),
     it: G.items.map(i => [i.id, ITEM_KEYS.indexOf(i.k), r0(i.x), r0(i.y), r2(i.t)]),
     gh: G.goalH, gx: G.goalFx.map(f => [f.k, r2(f.t)]), bb: r2(G.bigBallT), fl: r2(G.floatT), wd: [G.wind.team, r2(G.wind.t)],
     lg: G.lastGoal ? [G.lastGoal.team, G.lastGoal.p, G.lastGoal.own ? 1 : 0] : null,
@@ -4124,7 +4257,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
   // players: effects for everyone; positions only for the ones this phone does not move
   s.p.forEach((a, i) => {
     const p = G.players[i]; if (!p) return;
-    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0; p.muscle = a[22] || 0; p.hp = a[23] == null ? 1 : a[23]; p.hot = a[24] || 0; p.drunk = a[25] || 0;
+    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0; p.muscle = a[22] || 0; p.hp = a[23] == null ? 1 : a[23]; p.hot = a[24] || 0; p.drunk = a[25] || 0; p.present = a[26] || 0;
     if (p.i !== myIdx) {
       p.scale = a[15]; p.r = HEAD_R * p.scale; p.landT = a[17]; p.legK = a[21] || targetLeg(p);
       if (a[5] >= 0) { if (p.kick.seq !== a[6] || p.kick.t < 0) { p.kick.seq = a[6]; p.kick.t = a[5]; } } else p.kick.t = -1;
@@ -4138,7 +4271,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
     if (e.k === 'knock' || e.k === 'bump') { const p = G.players[e.p]; if (p && p.owned && e.ep === NetSync.epoch) { p.vx = e.vx; p.vy = e.vy; p.ground = false; } }
     // own jumps, swings and supers were already shown here
     const ownP = i => G.players[i] && G.players[i].owned;
-    if (((e.k === 'super' || e.k === 'swing' || e.k === 'flex' || e.k === 'boil' || e.k === 'cheers') && ownP(e.p)) || (e.k === 'drunk' && ownP(e.by))) continue;
+    if (((e.k === 'super' || e.k === 'swing' || e.k === 'flex' || e.k === 'boil' || e.k === 'cheers' || e.k === 'present') && ownP(e.p)) || (e.k === 'drunk' && ownP(e.by))) continue;
     onEvent(e, true);
   }
   // a reset the events did not carry (or the first picture after joining mid-match)
@@ -4173,6 +4306,7 @@ function guestExtrapolate(G, dtFrame) {
   });
   // the fakes
   G.fakes = s.f.map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], r: G.ball.r, rot: 0, av: 0 }));
+  G.meteors = (s.mt || []).map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], team: a[5] })).filter(m => m.y < GROUND);
   // the ball: run it forward from the picture, bouncing off the walls and off this phone's own player
   const sb = s.b, b = G.ball;
   b.held = !!sb[5]; b.mode = MODES[sb[6]] || ''; b.modeT = Math.max(0, sb[7] - age); b.modeTeam = sb[8]; b.last = sb[9]; b.ghostP = sb[11] == null ? -1 : sb[11]; b.heatT = sb[12] || 0;
@@ -4462,13 +4596,15 @@ function onEvent(e, remote) {
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
     case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'present': if (P) { floatText(P.x, P.y - P.r - 54, 'では、始めます。', '#CFE3FF', 32, 1.2); FX.flash = 0.35; FX.flashCol = '#DDEBFF'; S('present'); } break;
+    case 'meteor': puff(e.x, e.y, 9, '#DFF4FF', 320, 80, 7, 0.45, 'star'); ring(e.x, e.y, 'rgba(160,220,255,.9)', 10, 70, 0.3, 6); S('meteor'); break;
     case 'cheers': if (P) { P._cheersT = G.t; floatText(P.x, P.y - P.r - 54, 'のめのめ〜！', '#FFE7A8', 40, 1.2); ring(P.x, P.y, '#F0A928', 30, 170, 0.45, 10); S('cheers'); } break;
     case 'drunk': if (P) { floatText(P.x, P.y - P.r - 40, '🍺 ヒック', '#FFE7A8', 30, 1.0); puff(P.x, P.y - P.r * 0.5, 10, '#FFF6D0', 160, 60, 7, 0.6); S('hic'); } break;
     case 'boil': if (P) { floatText(P.x, P.y - P.r - 50, 'ボッ！', '#FFB0A0', 42, 0.9); ring(P.x, P.y, '#FF4A3A', 30, 170, 0.45, 10); puff(P.x, P.y - P.r, 12, 'rgba(255,255,255,.9)', 160, 120, 12, 0.8, 'smoke'); S('boil'); } break;
     case 'sizzle': ring(e.x, e.y, '#FF6A2A', 12, 70, 0.3, 7); puff(e.x, e.y, 8, '#FFB347', 300, 40, 7, 0.4, 'flame'); S('sizzle'); break;
     case 'flex': if (P) { floatText(P.x, P.y - P.r - 50, 'ムキッ！', '#FFE1B0', 40, 1.0); ring(P.x, P.y, '#FFB07A', 30, 160, 0.45, 9); S('flex'); } break;
     case 'punch': floatText(e.x, e.y - 40, 'ドン！', '#FFFFFF', 38, 0.7); puff(e.x, e.y, 10, '#FFE9A0', 360, 0, 7, 0.35, 'star'); ring(e.x, e.y, '#FFB07A', 14, 80, 0.3, 7); FX.shake = Math.max(FX.shake, 0.22); S('punch'); break;
-    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : e.how === 'burn' ? 'あちっ！' : 'ゴツッ', e.how === 'burn' ? '#FFC2A8' : '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); } break;
+    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : e.how === 'burn' ? 'あちっ！' : e.how === 'meteor' ? 'ドカッ' : 'ゴツッ', e.how === 'burn' ? '#FFC2A8' : '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); } break;
     case 'ko': if (P) { floatText(P.x, P.y - P.r - 60, 'ダウン！', '#FF8A8A', 42, 1.4); puff(P.x, P.y - P.r, 12, '#FFE14D', 300, 80, 9, 0.7, 'star'); FX.shake = Math.max(FX.shake, 0.3); S('ko'); } break;
     case 'slip': if (P) { floatText(e.x, e.y - 46, 'すりぬけ！', '#E6DDFF', 30, 0.9); puff(e.x, e.y, 10, '#D9CCFF', 220, 20, 7, 0.5); S('slip'); } break;
     case 'freeze': if (P) { puff(P.x, P.y, 14, '#DFF7FF', 300, 60, 8, 0.6, 'snow'); S('freeze'); } break;
@@ -5311,7 +5447,7 @@ setInterval(() => { if (M.G && M.mode !== 'demo') renderNetbar(); else $('#netba
 
 // ---------- a newer version on the site: take it by itself ----------
 // phones keep an open page (and the site's page) for a long time, so look now and then and reload on the title screen
-var BUILD_ID = '08e1719bce';
+var BUILD_ID = 'afd1c2dcb1';
 var Updater = {
   busy: false, pending: false,
   safe() {
