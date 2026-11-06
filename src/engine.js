@@ -45,8 +45,8 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0,
-    hp: 1, hurtT: -9,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0,
+    hp: 1, hurtT: -9, burnT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
     cpu: null, away: false,
@@ -192,6 +192,7 @@ function step(G, inputs) {
     const fx = G.goalFx[side];
     if (fx.t > 0) { fx.t -= DT; if (fx.t <= 0) { fx.t = 0; fx.k = ''; setGoalH(G, side, GOAL_H); } }
   }
+  if (G.ball.heatT > 0) G.ball.heatT -= DT;
   if (G.bigBallT > 0) { G.bigBallT -= DT; if (G.bigBallT <= 0) { G.bigBallT = 0; setBallR(G, BALL_R); } }
 }
 
@@ -238,6 +239,7 @@ function tickTimers(G, p, dt) {
   if (p.pow > 0) p.pow = Math.max(0, p.pow - dt);
   if (p.stretch > 0) p.stretch = Math.max(0, p.stretch - dt);
   if (p.muscle > 0) p.muscle = Math.max(0, p.muscle - dt);
+  if (p.hot > 0) p.hot = Math.max(0, p.hot - dt);
   // health: full again after a knock-down, and slowly back when left alone for a while
   if (p.hp < 1) {
     if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
@@ -377,6 +379,9 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'hot') {
+    p.hot = HOT_T;
+    ev(G, 'boil', { p: p.i });
   } else if (kind === 'muscle') {
     p.muscle = MUSCLE_T;
     ev(G, 'flex', { p: p.i });
@@ -590,6 +595,13 @@ function ballVsPlayer(G, b, p, dt, s) {
         else if (ny < -0.2) b.vx += p.face * 50;
         const hs = Math.hypot(b.vx, b.vy), cap = 1120 * (p.scale > 1.2 ? 1.1 : 1);
         if (hs > cap && !b.mode) { b.vx *= cap / hs; b.vy *= cap / hs; }
+        // まっかっかヘッド: the red-hot head sends it off forward like a rocket
+        if (p.hot > 0 && !b.mode) {
+          const a = 0.16 + clamp(-ny, -0.4, 1) * 0.34 + (G.rng() - 0.5) * 0.08, hsp = 1420;
+          b.vx = p.face * Math.cos(a) * hsp; b.vy = -Math.sin(a) * hsp;
+          b.heatT = 0.8;
+          if (G.t - (p.sizzleT || -9) > 0.15) { p.sizzleT = G.t; ev(G, 'sizzle', { p: p.i, x: b.x | 0, y: b.y | 0 }); }
+        }
         b.av = (b.vx - pvx) / R * 0.5;
         if (-vn > 200 && G.t - p.lastTouchT > 0.12) ev(G, 'head', { p: p.i, v: -vn | 0, x: b.x | 0, y: b.y | 0 });
         touched = true; b.lastKind = 'head';
@@ -635,7 +647,7 @@ function kickBall(G, b, p, head) {
   const near = Math.abs(b.x - b.scrumX) < 170 && G.t - b.kickT < 0.7 && b.kickTeam !== p.team;
   b.scrum = near ? b.scrum + 1 : 0; b.scrumX = b.x;
   if (b.scrum >= 3) { a = 0.95 + G.rng() * 0.4; b.scrum = 0; }
-  const sp = kckOf(ch.kck) * spMul * (head ? 0.92 : 1) * (p.big > 0 || p.giant > 0 ? 1.06 : 1) * (p.tiny > 0 ? 0.9 : 1) * (p.pow > 0 ? 1.15 : 1) * (0.96 + G.rng() * 0.08);
+  const sp = kckOf(ch.kck) * spMul * (head ? (p.hot > 0 ? 1.18 : 0.92) : 1) * (p.big > 0 || p.giant > 0 ? 1.06 : 1) * (p.tiny > 0 ? 0.9 : 1) * (p.pow > 0 ? 1.15 : 1) * (0.96 + G.rng() * 0.08);
   b.vx = p.face * Math.cos(a) * sp + p.vx * 0.25;
   b.vy = -Math.sin(a) * sp + Math.min(0, p.vy) * (head ? 0.2 : 0.1);
   b.av = -p.face * 14;
@@ -645,6 +657,7 @@ function kickBall(G, b, p, head) {
     b.vx = Math.cos(ang) * csp; b.vy = Math.sin(ang) * csp;
     ev(G, 'clash', { x: b.x | 0, y: b.y | 0 });
   }
+  if (head && p.hot > 0) b.heatT = 0.8;
   b.kickT = G.t; b.kickTeam = p.team; b.kickVx = b.vx; b.kickVy = b.vy;
   // out of the shoe (or off the head), so it does not touch it again at once
   if (head) {
@@ -680,6 +693,14 @@ function punchBall(G, b, p) {
 // ---------- kicking (or punching) someone on the other side hurts ----------
 function hitPlayers(G) {
   if (G.phase !== 'play') return;
+  // まっかっかヘッド: bumping into the red-hot head burns
+  for (const p of G.players) {
+    if (p.hot <= 0) continue;
+    for (const q of G.players) {
+      if (q.team === p.team || q.stn > 0 || G.t - q.burnT < 0.7) continue;
+      if (Math.hypot(q.x - p.x, q.y - p.y) < p.r + q.r + 6) { q.burnT = G.t; hurt(G, p, q, 'burn', (p.x + q.x) / 2, (p.y + q.y) / 2); }
+    }
+  }
   for (const p of G.players) {
     const kt = p.kick.t;
     if (kt < 0 || kt > KICK_FWD + KICK_GRACE || p.frz > 0 || p.stn > 0) continue;
@@ -703,7 +724,8 @@ function touchesPlayer(q, x, y, rad) {
 }
 function hurt(G, p, q, how, x, y) {
   let dmg = 0.2 + 0.02 * CHARS[p.char].kck;          // four or five kicks
-  if (how === 'punch') dmg *= 1.8;
+  if (how === 'burn') dmg = 0.15;
+  else if (how === 'punch') dmg *= 1.8;
   else if (p.muscle > 0) dmg *= 1.3;
   if (p.pow > 0) dmg *= 1.2;
   if (p.big > 0 || p.giant > 0) dmg *= 1.2;
@@ -715,6 +737,7 @@ function hurt(G, p, q, how, x, y) {
     bump(G, q, dir, 520, -380);
     ev(G, 'ko', { p: q.i, by: p.i });
   } else if (how === 'punch') bump(G, q, dir, 460, -300);
+  else if (how === 'burn') bump(G, q, dir, 420, -280);
   else bump(G, q, dir, 280, -150);
 }
 // a push for someone who got hit (a joined phone moves its own player, so it is told too)
