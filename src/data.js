@@ -87,8 +87,8 @@ const CHARS = [
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
   { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'drink', mass: 1, beer: true,
     skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
-  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true,
-    skin: '#F5D0B5', hair: '#5A3A28', hair2: '#8A5E42', look: 'lapis', blurb: 'なぜか帰宅したはずなのに、閉店後に控え室に必ず出現する。中学生の時にタバコを吸ってるのがバレたんだとか。。。' },
+  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, leg: 1.4, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true,
+    skin: '#F5D0B5', hair: '#1C1A1F', hair2: '#45404D', look: 'lapis', blurb: 'なぜか帰宅したはずなのに、閉店後に控え室に必ず出現する。中学生の時にタバコを吸ってるのがバレたんだとか。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
 

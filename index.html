@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1F5E3A">
-<meta name="gottsun-build" content="87477e757c">
+<meta name="gottsun-build" content="3b5638ce03">
 <meta name="description" content="大きな頭でヘディング！4人まで遊べるあたまサッカー。CPU対戦、1台でみんなで、スマホを合言葉でつないで遊べます。">
 <title>ゴッツンサッカー</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
@@ -573,8 +573,8 @@ const CHARS = [
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
   { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'drink', mass: 1, beer: true,
     skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
-  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true,
-    skin: '#F5D0B5', hair: '#5A3A28', hair2: '#8A5E42', look: 'lapis', blurb: 'なぜか帰宅したはずなのに、閉店後に控え室に必ず出現する。中学生の時にタバコを吸ってるのがバレたんだとか。。。' },
+  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, leg: 1.4, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true,
+    skin: '#F5D0B5', hair: '#1C1A1F', hair2: '#45404D', look: 'lapis', blurb: 'なぜか帰宅したはずなのに、閉店後に控え室に必ず出現する。中学生の時にタバコを吸ってるのがバレたんだとか。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
 
@@ -2614,6 +2614,21 @@ function drawMeteors(c, G, t) {
 // ラピス: a tall stack of plates held up on one hand at the back, wobbling as she goes
 function drawPlates(c, p, ch, G, t) {
   const r = p.r, f = p.face, k = Math.sqrt(p.scale);
+  // a white chef coat: double-breasted, a black neckerchief at the top
+  {
+    const [hx] = pivotOf(p), top = p.y + r * 0.5, bot = p.y + footOff(p) - FOOT_R * 1.1, tw = r * 0.72, bw = r * 0.86;
+    c.beginPath();
+    c.moveTo(hx - tw, top); c.lineTo(hx + tw, top);
+    c.quadraticCurveTo(hx + bw * 1.05, (top + bot) / 2, hx + bw, bot - 8);
+    c.quadraticCurveTo(hx + bw, bot, hx + bw - 10, bot);
+    c.lineTo(hx - bw + 10, bot); c.quadraticCurveTo(hx - bw, bot, hx - bw, bot - 8);
+    c.quadraticCurveTo(hx - bw * 1.05, (top + bot) / 2, hx - tw, top); c.closePath();
+    fillOut(c, '#FAFAF6', 3);
+    c.fillStyle = '#9AA3B5';
+    for (const dx of [-0.24, 0.24]) for (let yy = p.y + r * 1.04; yy < bot - 6; yy += r * 0.2) { circ(c, hx + f * dx * r, yy, 2.6 * k); c.fill(); }
+    c.strokeStyle = 'rgba(150,160,180,.6)'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(hx + f * r * 0.06, p.y + r * 0.98); c.lineTo(hx + f * r * 0.06, bot - 3); c.stroke();
+  }
   const run = clamp(Math.abs(p.vx) / 300, 0, 1), wob = Math.sin(t * 11 + p.i) * 0.06 * run + clamp(-p.vx * f / 3000, -0.12, 0.12);
   const S = [p.x - f * r * 0.55, p.y + r * 0.62], H = [p.x - f * r * 1.22, p.y - r * 0.05];
   const w = 9 * k;
@@ -2884,13 +2899,27 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
       c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x1, y1, x2, y2); c.stroke();
     }
   } else if (look === 'lapis') {
-    // a soft, permed bob in brown, curls all round
-    c.fillStyle = ch.hair;
-    const curls = [[-1.0, 0.35, 0.36], [-1.08, -0.05, 0.4], [-0.95, -0.5, 0.42], [-0.6, -0.88, 0.42], [-0.15, -1.06, 0.42], [0.32, -1.04, 0.4], [0.72, -0.82, 0.36], [0.96, -0.45, 0.3], [-0.78, 0.62, 0.3]];
-    for (const [x, y, rr] of curls) { circ(c, x, y, rr); c.lineWidth = lw; c.strokeStyle = OUT; c.stroke(); }
-    for (const [x, y, rr] of curls) { circ(c, x, y, rr - lw / 2); c.fill(); }
-    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9;
-    for (const [x, y, rr] of curls.slice(1, 6)) { c.beginPath(); c.arc(x, y, rr * 0.55, -2.4, -0.9); c.stroke(); }
+    // black hair pulled back into a ponytail that swings about
+    const sw = Math.sin(t * 6) * 0.08 + clamp(p.vx * p.face / 700, -0.5, 0.5) * 0.35 + clamp(-p.vy / 1400, -0.5, 0.5) * 0.4;
+    c.beginPath();
+    c.moveTo(-0.88, -0.62);
+    c.quadraticCurveTo(-1.5 - sw * 0.3, -0.75 + sw * 0.2, -1.55 - sw, -0.1 + sw * 0.3);
+    c.quadraticCurveTo(-1.6 - sw * 1.2, 0.45 + sw * 0.2, -1.32 - sw * 0.9, 0.78);
+    c.quadraticCurveTo(-1.28 - sw * 0.4, 0.3, -1.08, -0.08);
+    c.quadraticCurveTo(-1.0, -0.3, -0.8, -0.38); c.closePath();
+    fillOut(c, ch.hair, lw);
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-1.12, -0.5); c.quadraticCurveTo(-1.42 - sw * 0.6, -0.1, -1.36 - sw * 0.9, 0.45); c.stroke();
+    // the hair over the head, smooth
+    c.beginPath(); c.moveTo(0.86, -0.5);
+    c.quadraticCurveTo(0.6, -1.12, -0.1, -1.1);
+    c.quadraticCurveTo(-0.78, -1.06, -1.04, -0.5);
+    c.quadraticCurveTo(-1.14, -0.05, -0.98, 0.3);
+    c.lineTo(-0.3, 0.2); c.lineTo(0.6, -0.2); c.closePath();
+    fillOut(c, ch.hair, lw);
+    c.strokeStyle = ch.hair2; c.lineWidth = lw; c.beginPath(); c.moveTo(-0.55, -0.98); c.quadraticCurveTo(-0.98, -0.66, -1.0, -0.2); c.stroke();
+    // the hair tie
+    ell(c, -0.98, -0.5, 0.11, 0.16, 0.5); fillOut(c, '#E5322D', lw * 0.8);
   } else if (look === 'masato') {
     // neat black hair with volume on top, over the ears, the ends flicking out
     c.beginPath();
@@ -3007,11 +3036,18 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.beginPath(); c.moveTo(-0.45, -0.95); c.quadraticCurveTo(-0.2, -0.72, -0.02, -0.86); c.stroke();
     c.beginPath(); c.moveTo(0.22, -0.98); c.quadraticCurveTo(0.46, -0.76, 0.64, -0.9); c.stroke();
   } else if (look === 'lapis') {
-    // curly bangs swept to one side
-    c.fillStyle = ch.hair;
-    for (const [x, y, rr] of [[-0.6, -0.72, 0.36], [-0.22, -0.86, 0.34], [0.16, -0.9, 0.3], [0.5, -0.86, 0.26], [0.8, -0.72, 0.22], [-0.85, -0.3, 0.3]]) { circ(c, x, y, rr); c.fill(); }
-    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9;
-    for (const [x, y] of [[-0.22, -0.86], [0.16, -0.9], [0.5, -0.86]]) { c.beginPath(); c.arc(x, y + 0.04, 0.16, 0.3, 2.4); c.stroke(); }
+    // pulled back: a smooth hairline, the forehead showing
+    c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.62);
+    c.quadraticCurveTo(0.7, -0.74, 0.3, -0.7);
+    c.quadraticCurveTo(-0.2, -0.64, -0.46, -0.42);
+    c.quadraticCurveTo(-0.6, -0.2, -0.64, 0.12);
+    c.lineTo(-1.1, 0.3); c.closePath();
+    c.fillStyle = ch.hair; c.fill();
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 1.1; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0.6, -0.86); c.quadraticCurveTo(0.1, -0.86, -0.36, -0.62); c.stroke();
+    // one loose strand
+    c.strokeStyle = ch.hair; c.lineWidth = lw * 1.1;
+    c.beginPath(); c.moveTo(0.22, -0.7); c.quadraticCurveTo(0.34, -0.48, 0.24, -0.32); c.stroke();
   } else if (look === 'masato') {
     // a center part; the bangs sweep out to both sides and flick up at the ends
     c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.2);
@@ -3337,24 +3373,52 @@ function drawLapisFace(c, lw, t, lx, ly, mood) {
     c.lineWidth = lw * 0.8;
     c.beginPath(); c.moveTo(ex + 0.12 * sz, ey - 0.02); c.lineTo(ex + 0.19 * sz, ey - 0.07); c.stroke();
   }
-  // gentle brows
-  c.strokeStyle = 'rgba(90,58,40,.9)'; c.lineWidth = lw * 1.1;
-  for (const [ex, ey] of eyes) { c.beginPath(); c.moveTo(ex - 0.13, ey - 0.3); c.quadraticCurveTo(ex, ey - 0.37, ex + 0.14, ey - 0.3); c.stroke(); }
+  // thin, drawn-on brows, arched
+  c.strokeStyle = 'rgba(30,26,30,.9)'; c.lineWidth = lw * 0.9;
+  for (const [ex, ey] of eyes) { c.beginPath(); c.moveTo(ex - 0.14, ey - 0.27); c.quadraticCurveTo(ex - 0.02, ey - 0.4, ex + 0.15, ey - 0.3); c.stroke(); }
+  // a few years on the face: crow's feet, lines under the eyes, smile lines, a soft double chin
+  c.strokeStyle = 'rgba(150,95,75,.55)'; c.lineWidth = lw * 0.6;
+  for (const [ex, ey, sz] of eyes) {
+    c.beginPath(); c.moveTo(ex - 0.1 * sz, ey + 0.15); c.quadraticCurveTo(ex, ey + 0.19, ex + 0.11 * sz, ey + 0.14); c.stroke();
+  }
+  for (const k of [-1, 0, 1]) { c.beginPath(); c.moveTo(0.82, -0.02 + k * 0.05); c.lineTo(0.9, -0.04 + k * 0.08); c.stroke(); }
+  c.lineWidth = lw * 0.75;
+  c.beginPath(); c.moveTo(0.33, 0.22); c.quadraticCurveTo(0.24, 0.36, 0.26, 0.5); c.stroke();
+  c.beginPath(); c.moveTo(0.62, 0.22); c.quadraticCurveTo(0.74, 0.36, 0.72, 0.5); c.stroke();
+  c.beginPath(); c.moveTo(0.3, 0.8); c.quadraticCurveTo(0.5, 0.88, 0.72, 0.78); c.stroke();
   // nose
   c.lineWidth = lw * 0.8; c.strokeStyle = OUT;
   c.beginPath(); c.moveTo(0.46, 0.12); c.quadraticCurveTo(0.56, 0.24, 0.44, 0.27); c.stroke();
-  const mx = 0.47, my = 0.5;
-  if (mood === 'yell' || mood === 'up' || mood === 'dizzy') {
-    ell(c, mx, my + 0.02, 0.12, mood === 'yell' ? 0.13 : 0.09); fillOut(c, '#A8324A', lw * 0.8);
-  } else if (mood === 'sad' || mood === 'cold') {
-    c.lineWidth = lw * 1.2; c.strokeStyle = '#C24A62';
-    c.beginPath(); c.moveTo(mx - 0.13, my + 0.06); c.quadraticCurveTo(mx, my - 0.03, mx + 0.14, my + 0.05); c.stroke();
+  // full, plump lips (たらこ唇)
+  const mx = 0.47, my = 0.52, lip = '#C93D5C', lipLo = '#D6536F';
+  if (mood === 'joy') {
+    // a wide grin, ringed by thick lips
+    const grin = () => { c.beginPath(); c.moveTo(mx - 0.22, my - 0.02); c.quadraticCurveTo(mx, my + 0.3, mx + 0.24, my - 0.03); c.quadraticCurveTo(mx, my + 0.02, mx - 0.22, my - 0.02); c.closePath(); };
+    grin(); c.fillStyle = '#7A1E30'; c.fill();
+    c.save(); grin(); c.clip(); c.fillStyle = '#FFFFFF'; c.fillRect(mx - 0.25, my - 0.04, 0.5, 0.08); c.restore();
+    c.lineWidth = lw * 2.6; c.strokeStyle = lip; grin(); c.stroke();
+    c.lineWidth = lw * 0.7; c.strokeStyle = OUT; c.stroke();
+  } else if (mood === 'yell' || mood === 'up' || mood === 'dizzy') {
+    // open: the mouth ringed by thick lips
+    const ry = mood === 'yell' ? 0.15 : 0.11;
+    ell(c, mx, my + 0.04, 0.17, ry); c.fillStyle = '#7A1E30'; c.fill();
+    c.lineWidth = lw * 2.4; c.strokeStyle = lip; ell(c, mx, my + 0.04, 0.17, ry); c.stroke();
+    c.lineWidth = lw * 0.7; c.strokeStyle = OUT; ell(c, mx, my + 0.04, 0.17 + lw * 1.25, ry + lw * 1.25); c.stroke();
   } else {
-    // a big smile with pink lips
-    c.beginPath(); c.moveTo(mx - 0.2, my - 0.04); c.quadraticCurveTo(mx, my + (mood === 'joy' ? 0.28 : 0.2), mx + 0.22, my - 0.05); c.closePath();
-    c.fillStyle = '#8A2438'; c.fill();
-    c.save(); c.clip(); c.fillStyle = '#FFFFFF'; c.fillRect(mx - 0.25, my - 0.08, 0.5, 0.07); c.restore();
-    c.strokeStyle = '#E0607A'; c.lineWidth = lw * 1.3; c.stroke();
+    const down = mood === 'sad' || mood === 'cold' ? 0.05 : 0;
+    // the upper lip, with a bow in the middle
+    c.beginPath(); c.moveTo(mx - 0.23, my + down);
+    c.quadraticCurveTo(mx - 0.13, my - 0.11, mx - 0.03, my - 0.06);
+    c.quadraticCurveTo(mx, my - 0.04, mx + 0.03, my - 0.06);
+    c.quadraticCurveTo(mx + 0.14, my - 0.11, mx + 0.24, my + down - 0.01);
+    c.quadraticCurveTo(mx, my + 0.03, mx - 0.23, my + down); c.closePath();
+    fillOut(c, lip, lw * 0.8);
+    // the big lower lip
+    c.beginPath(); c.moveTo(mx - 0.21, my + down + 0.01);
+    c.quadraticCurveTo(mx, my + 0.22 - down, mx + 0.22, my + down);
+    c.quadraticCurveTo(mx, my + 0.05, mx - 0.21, my + down + 0.01); c.closePath();
+    fillOut(c, lipLo, lw * 0.8);
+    c.fillStyle = 'rgba(255,255,255,.55)'; ell(c, mx + 0.05, my + 0.1 - down * 0.5, 0.07, 0.022); c.fill();
   }
 }
 // まさと: calm, clear eyes with a glint, straight brows and an easy smile (イケメン)
@@ -5788,7 +5852,7 @@ setInterval(() => { if (M.G && M.mode !== 'demo') renderNetbar(); else $('#netba
 
 // ---------- a newer version on the site: take it by itself ----------
 // phones keep an open page (and the site's page) for a long time, so look now and then and reload on the title screen
-var BUILD_ID = '87477e757c';
+var BUILD_ID = '3b5638ce03';
 var Updater = {
   busy: false, pending: false,
   safe() {
