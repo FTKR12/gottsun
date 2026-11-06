@@ -27,6 +27,7 @@ function show(name) {
   const menus = name !== 'game' && name !== 'pause' && name !== 'result' && name !== 'rejoin';
   Sound.bgm(menus || name === 'result');
   Sound.crowd(inMatch && (name === 'game' || name === 'pause'));
+  if (name === 'title' && window.Updater && Updater.pending) { Updater.pending = false; Updater.check(); }
 }
 let toastT = 0;
 function toast(msg, ms) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, ms || 2200); }
@@ -1056,6 +1057,32 @@ function renderNetbar() {
 }
 setInterval(() => { if (M.G && M.mode !== 'demo') renderNetbar(); else $('#netbar').hidden = true; }, 1000);
 
+// ---------- a newer version on the site: take it by itself ----------
+// phones keep an open page (and the site's page) for a long time, so look now and then and reload on the title screen
+var BUILD_ID = '__BUILD__';
+var Updater = {
+  busy: false, pending: false,
+  safe() {
+    const idle = !M.G || M.mode === 'demo';
+    const linked = Net.peers.length > 0 || !!(Net.link && Net.link.open);
+    return idle && !linked && (UI.screen === 'title' || UI.screen === 'howto');
+  },
+  check() {
+    if (this.busy || !/^https?:$/.test(location.protocol) || BUILD_ID.indexOf('__') === 0) return;
+    this.busy = true;
+    fetch(location.href.split('#')[0], { cache: 'reload' }).then(r => (r.ok ? r.text() : '')).then(t => {
+      this.busy = false;
+      const m = /name="gottsun-build" content="([0-9a-f]+)"/.exec(t);
+      if (!m || m[1] === BUILD_ID) return;
+      let tried = ''; try { tried = sessionStorage.getItem('gottsun-upd') || ''; } catch (e) {}
+      if (tried === m[1]) return;                       // reloaded for this one already: no loops
+      if (!this.safe()) { this.pending = true; return; } // after the match, back on the title screen
+      try { sessionStorage.setItem('gottsun-upd', m[1]); } catch (e) {}
+      location.reload();
+    }).catch(() => { this.busy = false; });
+  },
+};
+
 // ---------- start ----------
 // the stadium's lettering is drawn once; draw it again when the web font has arrived
 try { if (document.fonts) { document.fonts.ready.then(() => { BG.key = ''; }); document.fonts.addEventListener('loadingdone', () => { BG.key = ''; }); } } catch (e) {}
@@ -1063,10 +1090,12 @@ resize();
 demoStart();
 show('title');
 requestAnimationFrame(frame);
+setTimeout(() => Updater.check(), 1200);
 window.addEventListener('pageshow', () => resize());
 // a page that was asleep comes back with a stale clock
 document.addEventListener('visibilitychange', () => {
   lastNow = performance.now(); M.acc = 0;
   // this page was asleep, not the friends
   if (!document.hidden) for (const pr of Net.peers) pr.heardAt = performance.now() + 500;
+  if (!document.hidden) Updater.check();
 });
