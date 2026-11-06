@@ -133,7 +133,29 @@ function setupTouch() {
   };
   btn('t-jump', 'j'); btn('t-kick', 'k'); btn('t-super', 's');
   touchEl.addEventListener('contextmenu', e => e.preventDefault());
+  // iPhones zoom on a quick second tap (or two thumbs at once) unless the touch itself is
+  // cancelled; the buttons work on pointer events, which still arrive
+  const hold = { passive: false };
+  for (const el of [pad, ...touchEl.querySelectorAll('.tbtn'), document.getElementById('cv')]) {
+    for (const ev of ['touchstart', 'touchmove', 'touchend']) el.addEventListener(ev, e => { if (e.cancelable) e.preventDefault(); }, hold);
+  }
 }
+// no double-tap zoom and no pinch while a match is on (form fields keep their own gestures)
+(() => {
+  const hold = { passive: false };
+  const playing = () => typeof UI !== 'undefined' && UI.screen === 'game';
+  const field = t => t && t.closest && t.closest('textarea,input,select');
+  let lastEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = performance.now();
+    // (buttons keep their clicks: the page itself takes no gestures during a match)
+    if (playing() && !field(e.target) && !(e.target.closest && e.target.closest('button')) && now - lastEnd < 400 && e.cancelable) e.preventDefault();
+    lastEnd = now;
+  }, hold);
+  document.addEventListener('touchmove', e => { if ((e.touches && e.touches.length > 1 || playing()) && !field(e.target) && e.cancelable) e.preventDefault(); }, hold);
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => { if (!field(e.target)) e.preventDefault(); }, hold);
+  document.addEventListener('dblclick', e => { if (!field(e.target)) e.preventDefault(); }, hold);
+})();
 setupTouch();
 try { if (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches) Touch.on = true; } catch (e) {}
 window.addEventListener('touchstart', () => { if (!Touch.on) { Touch.on = true; if (window.UIHook) UIHook.touchOn(); } }, { passive: true, capture: true });

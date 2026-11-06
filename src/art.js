@@ -26,8 +26,8 @@ function outlined(c, str, x, y, size, fill, lw, font, align) {
 }
 
 // ---------------- the view ----------------
-function computeView(cw, ch, dpr, oy) {
-  const s = Math.min(cw / W, ch / H);
+function computeView(cw, ch, dpr, oy, scale) {
+  const s = scale || Math.min(cw / W, ch / H);
   V.s = s; V.dpr = dpr; V.cw = cw; V.ch = ch;
   V.ox = (cw - W * s) / 2;
   V.oy = oy != null ? oy : (ch - H * s) / 2;
@@ -203,16 +203,17 @@ function drawGoalFront(c, G) {
     // near post
     const px = side ? W - GOAL_D - BAR_OUT + 2 : GOAL_D + BAR_OUT - 10;
     rrect(c, px, y1 - 2, 8, GROUND - y1 + 4, 3); c.fillStyle = 'rgba(255,255,255,.8)'; c.fill();
-    if (G.goalBigT[side] > 0) {
-      c.fillStyle = 'rgba(255,215,64,.9)';
-      outlined(c, '🥅 でかゴール', side ? W - 110 : 110, y0 - 22, 22, '#FFD740', 4, FONT_UI);
+    const fx = G.goalFx && G.goalFx[side];
+    if (fx && fx.t > 0) {
+      const big = fx.k === 'big';
+      outlined(c, `${big ? 'でかゴール' : 'ちびゴール'} ${Math.ceil(fx.t)}`, side ? W - 100 : 100, y0 - 22, 22, big ? '#FFD740' : '#9EF0C0', 5, FONT_UI);
     }
   }
 }
 
 // ---------------- the ball ----------------
-function drawBallShape(c, x, y, rot, alpha, tint) {
-  const R = BALL_R;
+function drawBallShape(c, x, y, rot, alpha, tint, rad) {
+  const R = rad || BALL_R;
   c.save(); c.globalAlpha = alpha; c.translate(x, y);
   const g = c.createRadialGradient(-R * 0.35, -R * 0.4, R * 0.1, 0, 0, R);
   g.addColorStop(0, '#FFFFFF'); g.addColorStop(1, tint || '#DCE3EE');
@@ -240,11 +241,12 @@ function drawShadow(c, x, y, w, k) {
 }
 function drawBall(c, b, t, view) {
   const mode = b.mode && b.modeT > 0 ? b.mode : '';
+  const BALL_R = b.r || 23;
   if (mode === 'ghost') {
-    const a = 0.07 + 0.06 * Math.sin(t * 22);
-    drawShadow(c, b.x, b.y, BALL_R, 0.25);
-    drawBallShape(c, b.x, b.y, b.rot, a);
-    c.strokeStyle = `rgba(200,190,255,${0.18 + 0.1 * Math.sin(t * 9)})`; c.lineWidth = 2;
+    const a = 0.13 + 0.07 * Math.sin(t * 22);
+    drawShadow(c, b.x, b.y, BALL_R, 0.3);
+    drawBallShape(c, b.x, b.y, b.rot, a, null, BALL_R);
+    c.strokeStyle = `rgba(210,200,255,${0.3 + 0.12 * Math.sin(t * 9)})`; c.lineWidth = 2.5;
     circ(c, b.x, b.y, BALL_R + 4 + 3 * Math.sin(t * 13)); c.stroke();
     return;
   }
@@ -261,12 +263,12 @@ function drawBall(c, b, t, view) {
     const g = c.createRadialGradient(b.x, b.y, 5, b.x, b.y, BALL_R * 2.6);
     g.addColorStop(0, 'rgba(255,240,120,.95)'); g.addColorStop(0.45, 'rgba(255,120,20,.55)'); g.addColorStop(1, 'rgba(255,60,0,0)');
     c.fillStyle = g; circ(c, b.x, b.y, BALL_R * 2.6); c.fill();
-    drawBallShape(c, b.x, b.y, b.rot, 1, '#FFB347');
+    drawBallShape(c, b.x, b.y, b.rot, 1, '#FFB347', BALL_R);
   } else if (mode === 'ice') {
     const g = c.createRadialGradient(b.x, b.y, 5, b.x, b.y, BALL_R * 2.2);
     g.addColorStop(0, 'rgba(220,250,255,.9)'); g.addColorStop(1, 'rgba(120,200,255,0)');
     c.fillStyle = g; circ(c, b.x, b.y, BALL_R * 2.2); c.fill();
-    drawBallShape(c, b.x, b.y, b.rot, 1, '#9EDCFF');
+    drawBallShape(c, b.x, b.y, b.rot, 1, '#9EDCFF', BALL_R);
   } else if (mode === 'rocket') {
     const a = Math.atan2(b.vy, b.vx);
     c.save(); c.translate(b.x, b.y); c.rotate(a);
@@ -278,8 +280,8 @@ function drawBall(c, b, t, view) {
     c.fillStyle = '#C9D3E0'; c.beginPath(); c.moveTo(-6, -BALL_R - 6); c.lineTo(-18, -BALL_R + 6); c.lineTo(-4, -BALL_R + 6); c.closePath(); c.fill(); c.lineWidth = 2; c.strokeStyle = OUT; c.stroke();
     c.beginPath(); c.moveTo(-6, BALL_R + 6); c.lineTo(-18, BALL_R - 6); c.lineTo(-4, BALL_R - 6); c.closePath(); c.fill(); c.stroke();
     c.restore();
-    drawBallShape(c, b.x, b.y, b.rot, 1, '#FFD0D0');
-  } else drawBallShape(c, b.x, b.y, b.rot, 1);
+    drawBallShape(c, b.x, b.y, b.rot, 1, '#FFD0D0', BALL_R);
+  } else drawBallShape(c, b.x, b.y, b.rot, 1, null, BALL_R);
   // a ball above the top of the screen: show where it is
   if (b.y < V.y0 + BALL_R) {
     c.fillStyle = '#FFD740';
@@ -316,6 +318,12 @@ function drawPlayer(c, p, G, t, opt) {
     c.fillStyle = g; circ(c, 0, 0, 1.85); c.fill();
   }
   if (p.giant > 0) { c.fillStyle = 'rgba(255,200,60,.18)'; circ(c, 0, 0, 1.25 + 0.05 * Math.sin(t * 8)); c.fill(); }
+  // 替え玉パワー: a warm glow
+  if (p.pow > 0) {
+    const g = c.createRadialGradient(0, 0, 0.85, 0, 0, 1.5 + 0.06 * Math.sin(t * 10));
+    g.addColorStop(0, 'rgba(255,179,71,.45)'); g.addColorStop(1, 'rgba(255,179,71,0)');
+    c.fillStyle = g; circ(c, 0, 0, 1.6); c.fill();
+  }
   // eyes look at the ball (in unit space, mirrored)
   let lx = (b.x - p.x) * p.face, ly = b.y - p.y;
   const ld = Math.hypot(lx, ly) || 1; lx /= ld; ly /= ld;
@@ -343,6 +351,10 @@ function drawPlayer(c, p, G, t, opt) {
       starShape(c, sx2, sy2, 10, 4.5, a); fillOut(c, '#FFE14D', 2);
     }
   }
+  if (p.conf > 0) {
+    const bob = Math.sin(t * 8) * 4;
+    outlined(c, '⇄', p.x + p.face * r * 0.95, p.y - r * 0.95 + bob, 34, '#FFF27A', 6, FONT_UI);
+  }
   if (p.dash > 0 && Math.abs(p.vx) > 150) {
     c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 3;
     for (let k = 0; k < 3; k++) { const yy = p.y - r * 0.4 + k * r * 0.45, d = -sign(p.vx); c.beginPath(); c.moveTo(p.x + d * r * 1.1, yy); c.lineTo(p.x + d * (r * 1.1 + 34), yy); c.stroke(); }
@@ -351,7 +363,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -418,6 +430,39 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.lineTo(-1.55 - fl, -0.95); c.lineTo(-1.0, -0.62); c.lineTo(-1.62 - fl, -0.45); c.lineTo(-0.98, -0.25);
     c.lineTo(-1.45 - fl, 0.05); c.lineTo(-0.85, 0.15); c.closePath();
     fillOut(c, g, lw);
+  } else if (look === 'shades') {
+    // a shaggy, wavy mop down past the ears, the ends flicking out
+    c.beginPath();
+    c.moveTo(0.92, 0.16);
+    c.quadraticCurveTo(1.2, 0.34, 1.14, 0.02);
+    c.quadraticCurveTo(1.2, -0.42, 0.9, -0.8);
+    c.quadraticCurveTo(0.74, -1.16, 0.3, -1.14);
+    c.quadraticCurveTo(0.02, -1.34, -0.32, -1.16);
+    c.quadraticCurveTo(-0.8, -1.12, -0.98, -0.78);
+    c.quadraticCurveTo(-1.3, -0.48, -1.16, -0.1);
+    c.quadraticCurveTo(-1.28, 0.3, -1.1, 0.56);
+    c.quadraticCurveTo(-1.22, 0.82, -1.36, 0.8);
+    c.quadraticCurveTo(-1.02, 0.98, -0.74, 0.64);
+    c.lineTo(-0.3, 0.3); c.lineTo(0.6, 0.0); c.closePath();
+    fillOut(c, ch.hair, lw);
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9; c.lineCap = 'round';
+    for (const [x0, y0, x1, y1, x2, y2] of [[-1.16, -0.05, -0.98, 0.22, -1.1, 0.5], [-0.92, -0.72, -0.66, -0.6, -0.74, -0.3], [-0.36, -1.08, -0.1, -0.94, 0.12, -1.06], [0.62, -1.0, 0.86, -0.86, 0.98, -0.6]]) {
+      c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x1, y1, x2, y2); c.stroke();
+    }
+  } else if (look === 'center') {
+    // sleek, full black hair over the ears and down the nape
+    c.beginPath();
+    c.moveTo(0.96, -0.16);
+    c.quadraticCurveTo(1.14, -0.86, 0.5, -1.13);
+    c.quadraticCurveTo(-0.24, -1.34, -0.84, -0.95);
+    c.quadraticCurveTo(-1.24, -0.55, -1.18, -0.02);
+    c.quadraticCurveTo(-1.17, 0.42, -0.9, 0.64);
+    c.quadraticCurveTo(-0.72, 0.74, -0.6, 0.6);
+    c.lineTo(-0.3, 0.3); c.lineTo(0.6, 0.0); c.closePath();
+    fillOut(c, ch.hair, lw);
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 1.1; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-0.62, -0.98); c.quadraticCurveTo(-1.0, -0.62, -1.02, -0.18); c.stroke();
+    c.beginPath(); c.moveTo(-0.98, 0.12); c.quadraticCurveTo(-1.0, 0.36, -0.84, 0.52); c.stroke();
   } else if (look === 'robot') {
     c.strokeStyle = OUT; c.lineWidth = lw * 1.2; c.lineCap = 'round';
     c.beginPath(); c.moveTo(-0.25, -0.95); c.lineTo(-0.38, -1.42); c.stroke();
@@ -466,6 +511,30 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.strokeStyle = 'rgba(40,50,70,.35)'; c.lineWidth = lw * 0.7;
     c.beginPath(); c.moveTo(-1, 0.32); c.lineTo(1, 0.32); c.stroke();
     c.fillStyle = '#1F2A3C'; rrect(c, -0.18, -0.4, 1.3, 0.48, 0.2); c.fill();
+  } else if (look === 'shades') {
+    // shaggy bangs
+    c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.46);
+    c.quadraticCurveTo(0.92, -0.32, 0.8, -0.5); c.quadraticCurveTo(0.62, -0.66, 0.46, -0.42); c.quadraticCurveTo(0.26, -0.28, 0.1, -0.5);
+    c.quadraticCurveTo(-0.08, -0.64, -0.26, -0.38); c.quadraticCurveTo(-0.42, -0.1, -0.5, 0.35); c.lineTo(-1.1, 0.55); c.closePath();
+    c.fillStyle = ch.hair; c.fill();
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.8;
+    c.beginPath(); c.moveTo(-0.45, -0.95); c.quadraticCurveTo(-0.2, -0.72, -0.02, -0.86); c.stroke();
+    c.beginPath(); c.moveTo(0.22, -0.98); c.quadraticCurveTo(0.46, -0.76, 0.64, -0.9); c.stroke();
+  } else if (look === 'center') {
+    // curtain bangs: parted in the middle of the forehead, falling to both sides
+    c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.34);
+    c.quadraticCurveTo(0.94, -0.26, 0.82, -0.4);
+    c.quadraticCurveTo(0.6, -0.6, 0.41, -0.86);
+    c.quadraticCurveTo(0.27, -0.6, 0.06, -0.44);
+    c.quadraticCurveTo(-0.14, -0.3, -0.32, -0.34);
+    c.quadraticCurveTo(-0.52, -0.1, -0.58, 0.42);
+    c.lineTo(-1.1, 0.62); c.closePath();
+    c.fillStyle = ch.hair; c.fill();
+    // the shine on each side of the part
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 1.1; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0.3, -0.98); c.quadraticCurveTo(0.12, -0.66, -0.16, -0.56); c.stroke();
+    c.beginPath(); c.moveTo(0.54, -0.98); c.quadraticCurveTo(0.7, -0.72, 0.9, -0.6); c.stroke();
+    c.beginPath(); c.moveTo(-0.5, -0.72); c.quadraticCurveTo(-0.62, -0.4, -0.66, 0.0); c.stroke();
   } else if (look === 'wind') {
     c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.62);
     c.quadraticCurveTo(0.7, -0.48, 0.4, -0.6); c.quadraticCurveTo(0.05, -0.42, -0.3, -0.55); c.lineTo(-1.1, -0.1); c.closePath();
@@ -510,11 +579,14 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.fillStyle = '#7D8DA3'; for (const [x, y] of [[-0.75, 0.05], [-0.62, 0.55], [0.85, 0.5]]) { circ(c, x, y, 0.06); c.fill(); }
   }
   drawFace(c, ch, look, lw, t, lx, ly, mood);
+  if (look === 'shades') drawShades(c, lw, t, lx, ly, mood);
 }
 
 function drawFace(c, ch, look, lw, t, lx, ly, mood) {
   const eyes = look === 'ninja' ? [[0.2, -0.12], [0.66, -0.12]] : [[0.16, -0.1], [0.62, -0.1]];
   const robot = look === 'robot';
+  if (look === 'shades') { drawShadesFace(c, lw, mood); return; }
+  if (look === 'center') { drawCenterFace(c, lw, t, lx, ly, mood); return; }
   // cheeks
   if (look === 'bob' || look === 'ghost' || look === 'sumo') {
     c.fillStyle = look === 'sumo' ? 'rgba(255,120,120,.45)' : 'rgba(255,140,170,.5)';
@@ -598,6 +670,122 @@ function drawFace(c, ch, look, lw, t, lx, ly, mood) {
     c.beginPath(); c.moveTo(mx - 0.15, my - 0.01); c.quadraticCurveTo(mx, my + 0.11, mx + 0.16, my - 0.03); c.stroke();
     if (look === 'ghost') { c.fillStyle = '#FF7FA8'; ell(c, mx + 0.03, my + 0.1, 0.07, 0.09); c.fill(); }
   }
+}
+
+function drawShadesFace(c, lw, mood) {
+  // brows peeking over the frames
+  c.strokeStyle = OUT; c.lineWidth = lw * 1.7; c.lineCap = 'round';
+  const lift = mood === 'up' || mood === 'yell' ? -0.06 : mood === 'sad' || mood === 'cold' ? 0.03 : 0;
+  for (const [ex, ey] of [[0.13, -0.08], [0.67, -0.08]]) {
+    c.beginPath(); c.moveTo(ex - 0.15, ey - 0.4 + lift); c.quadraticCurveTo(ex, ey - 0.48 + lift, ex + 0.15, ey - 0.41 + lift); c.stroke();
+  }
+  // nose
+  c.lineWidth = lw * 0.8;
+  c.beginPath(); c.moveTo(0.44, 0.1); c.quadraticCurveTo(0.53, 0.22, 0.42, 0.25); c.stroke();
+  // the half-open mouth, top teeth showing
+  const mx = 0.48, my = 0.48;
+  const open = mood === 'yell' || mood === 'up' || mood === 'dizzy' ? 0.2 : mood === 'joy' ? 0.15 : mood === 'sad' ? 0.06 : 0.1;
+  c.save();
+  c.beginPath(); c.moveTo(mx - 0.21, my - 0.02); c.quadraticCurveTo(mx, my - 0.08, mx + 0.21, my - 0.03);
+  if (mood === 'joy') c.quadraticCurveTo(mx + 0.06, my + open * 2.1, mx - 0.21, my - 0.02);
+  else c.quadraticCurveTo(mx + 0.04, my + open * 1.6, mx - 0.21, my - 0.02);
+  c.closePath();
+  c.fillStyle = '#5A2230'; c.fill();
+  c.clip();
+  c.fillStyle = '#FFFFFF'; c.fillRect(mx - 0.24, my - 0.09, 0.48, 0.075 + open * 0.15);
+  c.strokeStyle = 'rgba(90,34,48,.5)'; c.lineWidth = lw * 0.4;
+  for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(mx + k * 0.08, my - 0.08); c.lineTo(mx + k * 0.08, my + 0.0); c.stroke(); }
+  c.restore();
+  c.beginPath(); c.moveTo(mx - 0.21, my - 0.02); c.quadraticCurveTo(mx, my - 0.08, mx + 0.21, my - 0.03);
+  if (mood === 'joy') c.quadraticCurveTo(mx + 0.06, my + open * 2.1, mx - 0.21, my - 0.02);
+  else c.quadraticCurveTo(mx + 0.04, my + open * 1.6, mx - 0.21, my - 0.02);
+  c.closePath(); c.lineWidth = lw * 0.8; c.strokeStyle = OUT; c.stroke();
+}
+// 室橋: narrow, sleepy eyes under heavy lids, and a sly half smile
+function drawCenterFace(c, lw, t, lx, ly, mood) {
+  const eyes = [[0.15, -0.06, 0.9], [0.63, -0.06, 1]];
+  c.lineCap = 'round';
+  for (const [ex, ey, sz] of eyes) {
+    if (mood === 'blink' || mood === 'joy') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 1.2; c.beginPath();
+      if (mood === 'joy') c.arc(ex, ey + 0.07, 0.13 * sz, Math.PI * 1.12, Math.PI * 1.88); else { c.moveTo(ex - 0.15, ey + 0.02); c.quadraticCurveTo(ex, ey + 0.06, ex + 0.15, ey + 0.01); }
+      c.stroke(); continue;
+    }
+    if (mood === 'dizzy') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 0.9; c.beginPath();
+      for (let k = 0; k < 18; k++) { const a = k * 0.7 + t * 9, rr = 0.02 + k * 0.008; c.lineTo(ex + Math.cos(a) * rr, ey + Math.sin(a) * rr); }
+      c.stroke(); continue;
+    }
+    // how open: a slit most of the time, wider when surprised or yelling
+    const open = (mood === 'up' || mood === 'yell' ? 0.14 : mood === 'sad' || mood === 'cold' ? 0.07 : mood === 'fierce' ? 0.075 : 0.095) * sz, rx = 0.165 * sz;
+    c.save();
+    c.beginPath(); c.moveTo(ex - rx, ey); c.quadraticCurveTo(ex, ey - open * 1.5, ex + rx, ey - 0.01);
+    c.quadraticCurveTo(ex, ey + open * 1.1, ex - rx, ey); c.closePath();
+    c.fillStyle = '#FFFFFF'; c.fill(); c.clip();
+    c.fillStyle = '#17181E'; circ(c, ex + lx * rx * 0.42, ey + 0.01 + ly * 0.02, 0.09 * sz); c.fill();
+    c.fillStyle = '#FFFFFF'; circ(c, ex + lx * rx * 0.42 - 0.03, ey - 0.03, 0.025); c.fill();
+    c.restore();
+    // the heavy upper lid
+    c.strokeStyle = OUT; c.lineWidth = lw * 1.7;
+    c.beginPath(); c.moveTo(ex - rx - 0.02, ey + 0.01); c.quadraticCurveTo(ex, ey - open * 1.55, ex + rx + 0.03, ey - 0.03); c.stroke();
+    c.lineWidth = lw * 0.6; c.beginPath(); c.moveTo(ex - rx * 0.6, ey + open * 0.95); c.quadraticCurveTo(ex, ey + open * 1.2, ex + rx * 0.7, ey + open * 0.8); c.stroke();
+    if (mood === 'cold') { c.fillStyle = 'rgba(120,200,255,.45)'; ell(c, ex, ey, rx, open); c.fill(); }
+  }
+  // faint, low brows (mostly under the bangs)
+  c.strokeStyle = 'rgba(26,26,31,.85)'; c.lineWidth = lw * 1.2;
+  const bl = mood === 'up' || mood === 'yell' ? -0.05 : mood === 'sad' ? 0.03 : 0;
+  for (const [ex, ey] of eyes) {
+    c.beginPath();
+    if (mood === 'sad' || mood === 'cold') { c.moveTo(ex - 0.13, ey - 0.25 + bl); c.lineTo(ex + 0.13, ey - 0.31 + bl); }
+    else if (mood === 'fierce') { c.moveTo(ex - 0.14, ey - 0.32); c.lineTo(ex + 0.13, ey - 0.25); }
+    else { c.moveTo(ex - 0.13, ey - 0.27 + bl); c.quadraticCurveTo(ex, ey - 0.31 + bl, ex + 0.14, ey - 0.27 + bl); }
+    c.stroke();
+  }
+  // nose
+  c.lineWidth = lw * 0.8; c.strokeStyle = OUT;
+  c.beginPath(); c.moveTo(0.45, 0.1); c.quadraticCurveTo(0.54, 0.22, 0.43, 0.25); c.stroke();
+  // mouth
+  const mx = 0.47, my = 0.46;
+  c.lineWidth = lw;
+  if (mood === 'yell' || mood === 'up' || mood === 'dizzy') {
+    ell(c, mx, my + 0.02, 0.12, mood === 'yell' ? 0.13 : 0.09); fillOut(c, '#7A2430', lw * 0.8);
+  } else if (mood === 'joy') {
+    // the big toothy grin from the photo
+    c.beginPath(); c.moveTo(mx - 0.22, my - 0.06); c.quadraticCurveTo(mx, my + 0.26, mx + 0.24, my - 0.1); c.closePath();
+    c.fillStyle = '#7A2430'; c.fill();
+    c.save(); c.clip(); c.fillStyle = '#FFFFFF'; c.fillRect(mx - 0.25, my - 0.12, 0.5, 0.1); c.restore();
+    c.strokeStyle = OUT; c.lineWidth = lw * 0.8; c.stroke();
+  } else if (mood === 'sad' || mood === 'cold') {
+    c.beginPath(); c.moveTo(mx - 0.13, my + 0.07); c.quadraticCurveTo(mx, my - 0.04, mx + 0.14, my + 0.06); c.stroke();
+  } else {
+    // a smirk: flat on one side, the far corner tucked up
+    c.beginPath(); c.moveTo(mx - 0.15, my + 0.02); c.quadraticCurveTo(mx + 0.02, my + 0.08, mx + 0.15, my - 0.04);
+    c.quadraticCurveTo(mx + 0.2, my - 0.08, mx + 0.22, my - 0.1); c.stroke();
+    c.lineWidth = lw * 0.6; c.beginPath(); c.moveTo(mx + 0.19, my - 0.13); c.quadraticCurveTo(mx + 0.25, my - 0.08, mx + 0.22, my - 0.03); c.stroke();
+  }
+}
+// round white sunglasses: the shine follows the ball
+function drawShades(c, lw, t, lx, ly, mood) {
+  const frame = '#F7F7F2';
+  c.lineCap = 'round';
+  c.strokeStyle = OUT; c.lineWidth = lw * 3.2; c.beginPath(); c.moveTo(-0.14, -0.12); c.lineTo(-0.7, -0.04); c.stroke();
+  c.strokeStyle = frame; c.lineWidth = lw * 1.8; c.stroke();
+  for (const [x, y] of [[0.13, -0.08], [0.67, -0.08]]) {
+    circ(c, x, y, 0.31); fillOut(c, frame, lw);
+    circ(c, x, y, 0.215); c.fillStyle = mood === 'cold' ? '#5E7E9E' : '#262A35'; c.fill();
+    c.lineWidth = lw * 0.6; c.strokeStyle = 'rgba(27,32,48,.6)'; c.stroke();
+    if (mood === 'dizzy') {
+      c.strokeStyle = '#FFFFFF'; c.lineWidth = lw * 0.8; c.beginPath();
+      for (let k = 0; k < 16; k++) { const a = k * 0.75 + t * 9, rr = 0.02 + k * 0.009; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+      c.stroke();
+    } else if (mood === 'joy') {
+      c.strokeStyle = '#FFFFFF'; c.lineWidth = lw * 1.1; c.beginPath(); c.arc(x, y + 0.05, 0.09, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+    } else {
+      c.fillStyle = 'rgba(255,255,255,.6)'; ell(c, x - 0.06 + lx * 0.05, y - 0.07 + ly * 0.04, 0.075, 0.042, -0.6); c.fill();
+      c.fillStyle = 'rgba(255,255,255,.35)'; circ(c, x + 0.07 + lx * 0.03, y + 0.06, 0.025); c.fill();
+    }
+  }
+  c.fillStyle = frame; rrect(c, 0.38, -0.13, 0.06, 0.06, 0.02); c.fill();
 }
 
 function starShape(c, x, y, R, r, rot) {
@@ -814,7 +1002,7 @@ function drawItems(c, G, t) {
   }
 }
 function drawFakes(c, G) {
-  for (const f of G.fakes) { drawShadow(c, f.x, f.y, BALL_R); drawBallShape(c, f.x, f.y, f.rot, 1); }
+  for (const f of G.fakes) { const r = f.r || G.ball.r || BALL_R; drawShadow(c, f.x, f.y, r); drawBallShape(c, f.x, f.y, f.rot, 1, null, r); }
 }
 
 // one whole frame of the match

@@ -17,7 +17,7 @@ function newMatch(setup) {
     clock: setup.time || 90, ot: false, result: null,
     score: [0, 0], players: [], ball: null, fakes: [], items: [],
     itemT: 9, itemSeq: 0, fakeSeq: 0,
-    goalH: [GOAL_H, GOAL_H], goalBigT: [0, 0], floatT: 0,
+    goalH: [GOAL_H, GOAL_H], goalFx: [{ k: '', t: 0 }, { k: '', t: 0 }], floatT: 0, bigBallT: 0,
     wind: { team: -1, t: 0 },
     evs: [], evSeq: 0, epoch: 0, lastGoal: null, idleT: 0, barT: 0,
     goalsLog: [],
@@ -29,7 +29,7 @@ function newMatch(setup) {
     G.players.push(p);
   });
   G.teamSize = per;
-  G.ball = { x: W / 2, y: 210, vx: 0, vy: 0, rot: 0, av: 0, mode: '', modeT: 0, modeTeam: -1, pierce: 0, hitMask: 0,
+  G.ball = { x: W / 2, y: 210, vx: 0, vy: 0, r: BALL_R, rot: 0, av: 0, scrum: 0, scrumX: 0, mode: '', modeT: 0, modeTeam: -1, pierce: 0, hitMask: 0, ghostP: -1,
              last: -1, lastTeam: -1, touchT: -9, restT: 0, held: true, prevX: W / 2, prevY: 210,
              teamLast: [-1, -1], teamLastT: [-9, -9], launchT: -9, kickT: -9, kickTeam: -1, kickVx: 0, kickVy: 0 };
   resetPositions(G, true);
@@ -43,9 +43,9 @@ function mkPlayer(i, sp, team, slot) {
     i, team, slot, char: ch, name: sp.name || CHARS[ch].name, ctrl: sp.ctrl || 'cpu', owned: true,
     face: team === 0 ? 1 : -1,
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
-    kick: { t: -1, seq: 0, hit: false }, jumpBuf: 0, coyote: 0, landT: 0,
+    kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
     cpu: null, away: false,
@@ -98,12 +98,29 @@ function speedMul(p) { return (p.dash > 0 ? 1.32 : 1) * (p.giant > 0 ? 0.92 : 1)
 function jumpMul(p) { return (p.dash > 0 ? 1.12 : 1) * (p.giant > 0 ? 0.95 : 1); }
 function massOf(p) { return CHARS[p.char].mass * p.scale * p.scale; }
 function targetScale(p) {
-  let s = 1;
+  let s = CHARS[p.char].size || 1;
   if (p.big > 0) s *= 1.45;
-  if (p.giant > 0) s *= 1.75;
+  if (p.giant > 0) s *= 1.6;
   if (p.tiny > 0) s *= 0.64;
-  return clamp(s, 0.55, 2.1);
+  return clamp(s, 0.48, 2.3);
 }
+// the crossbar moves (でかゴール / ちびゴール). A ball resting above the old crossbar, behind the
+// goal line, is lifted onto the new one instead of suddenly being inside the goal
+function setGoalH(G, side, h) {
+  const old = G.goalH[side];
+  if (old === h) return;
+  G.goalH[side] = h;
+  if (h <= old) return;
+  const top = GROUND - h - BAR_T;
+  const lift = b => {
+    const r = b.r || BALL_R;
+    const behind = side === 0 ? b.x < GOAL_D + BAR_OUT + r : b.x > W - GOAL_D - BAR_OUT - r;
+    if (behind && b.y < GROUND - old && b.y > top - r) { b.y = top - r - 1; if (b.vy > -80) b.vy = -80; }
+  };
+  lift(G.ball);
+  for (const f of G.fakes) lift(f);
+}
+function setBallR(G, r) { G.ball.r = r; for (const f of G.fakes) f.r = r; }
 function startX(G, p) {
   const n = G.teamSize[p.team];
   const xs = n <= 1 ? [470] : n === 2 ? [560, 300] : n === 3 ? [620, 440, 260] : [640, 500, 360, 230];
@@ -113,7 +130,7 @@ function startX(G, p) {
 function placeAtStart(G, p) {
   p.x = startX(G, p); p.vx = 0; p.vy = 0; p.ground = true;
   p.scale = targetScale(p); p.r = HEAD_R * p.scale; p.y = standY(p);
-  p.kick.t = -1; p.frz = 0; p.stn = 0; p.jumpBuf = 0;
+  p.kick.t = -1; p.frz = 0; p.stn = 0; p.conf = 0; p.jumpBuf = 0;
 }
 
 function resetPositions(G, first) {
@@ -158,8 +175,10 @@ function step(G, inputs) {
   if (G.wind.t > 0) G.wind.t -= DT;
   if (G.floatT > 0) G.floatT -= DT;
   for (let side = 0; side < 2; side++) {
-    if (G.goalBigT[side] > 0) { G.goalBigT[side] -= DT; if (G.goalBigT[side] <= 0) G.goalH[side] = GOAL_H; }
+    const fx = G.goalFx[side];
+    if (fx.t > 0) { fx.t -= DT; if (fx.t <= 0) { fx.t = 0; fx.k = ''; setGoalH(G, side, GOAL_H); } }
   }
+  if (G.bigBallT > 0) { G.bigBallT -= DT; if (G.bigBallT <= 0) { G.bigBallT = 0; setBallR(G, BALL_R); } }
 }
 
 function phaseLogic(G) {
@@ -201,6 +220,8 @@ function tickTimers(G, p, dt) {
   if (p.tiny > 0) p.tiny = Math.max(0, p.tiny - dt);
   if (p.dash > 0) p.dash = Math.max(0, p.dash - dt);
   if (p.giant > 0) p.giant = Math.max(0, p.giant - dt);
+  if (p.conf > 0) p.conf = Math.max(0, p.conf - dt);
+  if (p.pow > 0) p.pow = Math.max(0, p.pow - dt);
   if (p.armed > 0) { p.armed -= dt; if (p.armed <= 0) { p.armed = 0; ev(G, 'fizzle', { p: p.i }); } }
   if (G.phase === 'play' && !p.armed && p.gauge < 1) p.gauge = Math.min(1, p.gauge + GAUGE_RATE * dt);
 }
@@ -222,6 +243,7 @@ function stepPlayer(G, p, inp, dt) {
   const off = !inp || p.frz > 0 || p.stn > 0;
   let mx = 0;
   if (!off) mx = (inp.r ? 1 : 0) - (inp.l ? 1 : 0);
+  if (p.conf > 0) mx = -mx;          // dazzled: left and right are swapped
   if (p.frz > 0) { if (p.ground) p.vx *= 0.5; }
   else {
     let want = mx * spdOf(ch.spd) * speedMul(p);
@@ -253,7 +275,8 @@ function stepPlayer(G, p, inp, dt) {
   // kick
   advanceKick(p, dt);
   if (!off && inp.k && (p.kick.t < 0 || p.kick.t > KICK_FWD + KICK_BACK * 0.55)) {
-    p.kick.t = 0; p.kick.seq++; p.kick.hit = false;
+    // the direction held when the button goes down picks the shot (+1 toward the other goal)
+    p.kick.t = 0; p.kick.seq++; p.kick.hit = false; p.kick.dir = mx * p.face;
     ev(G, 'swing', { p: p.i });
   }
   // super
@@ -321,11 +344,19 @@ function trySuper(G, p) {
   if (SUPERS[kind].armed) { p.armed = SUPER_ARM_T; return true; }
   const foes = G.players.filter(q => q.team !== p.team);
   if (kind === 'thunder') {
-    for (const q of foes) { q.stn = Math.max(q.stn, 1.7); q.armed = 0; ev(G, 'bolt', { p: q.i }); }
+    for (const q of foes) { q.stn = Math.max(q.stn, 1.4); q.armed = 0; ev(G, 'bolt', { p: q.i }); }
   } else if (kind === 'giant') {
     p.giant = 8;
   } else if (kind === 'wind') {
     G.wind.team = p.team; G.wind.t = 1.7;
+  } else if (kind === 'ramen') {
+    for (const q of G.players) if (q.team === p.team) {
+      q.dash = Math.max(q.dash, 6); q.pow = Math.max(q.pow, 6);
+      if (q !== p && !q.armed) q.gauge = Math.min(1, q.gauge + 0.45);
+      ev(G, 'ramen', { p: q.i });
+    }
+  } else if (kind === 'dazzle') {
+    for (const q of foes) { q.conf = Math.max(q.conf, 4); ev(G, 'dazzle', { p: q.i }); }
   }
   return true;
 }
@@ -341,7 +372,7 @@ function superShot(G, p) {
   p.armed = 0;
   ev(G, 'shot', { p: p.i, s: kind });
   const [tx, ty] = goalTarget(G, p.team);
-  b.modeTeam = p.team; b.hitMask = 0; b.pierce = 0; b.launchT = G.t;
+  b.modeTeam = p.team; b.hitMask = 0; b.pierce = 0; b.ghostP = -1; b.launchT = G.t;
   if (kind === 'fire') {
     aimBall(b, tx, ty, 1850);
     b.mode = 'fire'; b.modeT = 1.05; b.pierce = 1;
@@ -367,7 +398,7 @@ function superShot(G, p) {
     b.vx = Math.cos(ra) * sp; b.vy = Math.sin(ra) * sp;
     for (let i = 0; i < 3; i++) {
       if (i === real) continue;
-      G.fakes.push({ id: ++G.fakeSeq, x: b.x, y: b.y, vx: Math.cos(all[i]) * sp, vy: Math.sin(all[i]) * sp, rot: b.rot, av: b.av, life: 3.2 });
+      G.fakes.push({ id: ++G.fakeSeq, x: b.x, y: b.y, r: b.r, vx: Math.cos(all[i]) * sp, vy: Math.sin(all[i]) * sp, rot: b.rot, av: b.av, life: 3.2 });
     }
     b.mode = 'clone'; b.modeT = 3.2;
   }
@@ -422,13 +453,13 @@ function ballSub(G, dt, s) {
 function endMode(G) {
   const b = G.ball;
   if (b.mode === 'clone') { b.mode = ''; return; }
-  b.mode = ''; b.modeT = 0; b.pierce = 0;
+  b.mode = ''; b.modeT = 0; b.pierce = 0; b.ghostP = -1;
 }
 
 // walls, grass, ceiling, crossbars. Returns the hardest impact speed (0 if none)
 function ballStatics(G, b, dt, loud) {
   let hard = 0;
-  const R = BALL_R;
+  const R = b.r || BALL_R;
   if (b.y + R > GROUND) {
     b.y = GROUND - R;
     if (b.vy > 0) {
@@ -464,17 +495,23 @@ function ballStatics(G, b, dt, loud) {
 function ballVsPlayer(G, b, p, dt, s) {
   // the fireball goes through the shooter's own team
   if (b.mode === 'fire' && b.modeT > 0 && p.team === b.modeTeam) return;
-  const R = BALL_R;
+  const R = b.r;
   // shoe position partway through this step
   const kt = p.kick.t >= 0 ? Math.max(0, p.kick.t - DT + (s + 1) * DT / SUB) : -1;
   const [fx, fy, fa] = footAt(p, kt);
-  // a kick: the shoe sweeps through the ball
+  // a kick (forgiving): the shoe sweeps near the ball, or the ball is against the head (a header shot)
   if (kt >= 0 && kt <= KICK_FWD + KICK_GRACE && !p.kick.hit && p.frz <= 0 && p.stn <= 0) {
-    const dx = b.x - fx, dy = b.y - fy, reach = FOOT_R + R + 12 * Math.sqrt(p.scale);
-    if (dx * dx + dy * dy < reach * reach && (b.x - p.x) * p.face > -p.r * 0.35) {
-      kickBall(G, b, p, fy);
-      return;
+    const dx = b.x - fx, dy = b.y - fy, reach = FOOT_R + R + 22 * Math.sqrt(p.scale);
+    if (dx * dx + dy * dy < reach * reach && (b.x - p.x) * p.face > -p.r * 0.5) { kickBall(G, b, p, false); return; }
+    const hx = b.x - p.x, hy = b.y - p.y, hr = p.r + R + 16;
+    if (hx * hx + hy * hy < hr * hr && hx * p.face > -p.r * 0.6) { kickBall(G, b, p, true); return; }
+  }
+  // the ghost ball slips through the first player of the other side it comes to (only a kick stops it)
+  if (b.mode === 'ghost' && b.modeT > 0 && p.team !== b.modeTeam) {
+    if (b.ghostP < 0 && Math.abs(b.x - p.x) < p.r + R + 20 && b.y > p.y - p.r - R - 20) {
+      b.ghostP = p.i; ev(G, 'slip', { p: p.i, x: b.x | 0, y: b.y | 0 });
     }
+    if (b.ghostP === p.i) return;
   }
   let touched = false;
   // body: from the middle of the head down to the shoe, so the ball cannot wedge under the head
@@ -528,29 +565,49 @@ function ballVsPlayer(G, b, p, dt, s) {
   if (touched) touchBall(G, b, p, false);
 }
 
-function kickBall(G, b, p, fy) {
+function kickBall(G, b, p, head) {
   const ch = CHARS[p.char];
   p.kick.hit = true;
+  // one button, steered by the direction held when it was pressed:
+  //   toward the other goal: a low, hard drive (in the air: smashed down)
+  //   nothing: a normal shot      toward our own goal: a high lob
+  const dir = p.kick.dir || 0;
+  let a, spMul = 1;
+  if (dir > 0 && !p.ground && b.y > p.y - p.r * 0.3) { a = -0.3; spMul = 1.08; }
+  else if (dir > 0) { a = 0.1; spMul = 1.06; }
+  else if (dir < 0) { a = 0.98; spMul = 0.86; }
+  else a = 0.42;
+  if (head) a -= 0.06;
+  // a ball that is high up goes up a little more
   const [, py] = pivotOf(p);
-  const up = py - b.y;                     // + when the ball is higher than the hip
-  let a = clamp(0.38 + up * 0.0105, 0.22, 1.02);
-  if (!p.ground) a = clamp(a + 0.06, 0.22, 1.08);
-  const sp = kckOf(ch.kck) * (p.scale > 1.2 ? 1.08 : 1) * (p.tiny > 0 ? 0.9 : 1);
-  b.vx = p.face * Math.cos(a) * sp + p.vx * 0.28;
-  b.vy = -Math.sin(a) * sp + Math.min(0, p.vy) * 0.12;
+  a += clamp((py - b.y) * 0.0025, -0.04, 0.14);
+  // just a touch of luck, so two players kicking face to face do not lock up
+  a += (G.rng() - 0.5) * 0.08;
+  const near = Math.abs(b.x - b.scrumX) < 170 && G.t - b.kickT < 0.7 && b.kickTeam !== p.team;
+  b.scrum = near ? b.scrum + 1 : 0; b.scrumX = b.x;
+  if (b.scrum >= 3) { a = 0.95 + G.rng() * 0.4; b.scrum = 0; }
+  const sp = kckOf(ch.kck) * spMul * (head ? 0.92 : 1) * (p.big > 0 || p.giant > 0 ? 1.06 : 1) * (p.tiny > 0 ? 0.9 : 1) * (p.pow > 0 ? 1.15 : 1) * (0.96 + G.rng() * 0.08);
+  b.vx = p.face * Math.cos(a) * sp + p.vx * 0.25;
+  b.vy = -Math.sin(a) * sp + Math.min(0, p.vy) * (head ? 0.2 : 0.1);
   b.av = -p.face * 14;
-  // two players of opposite sides kicking it at the same moment: it pops up between them
-  if (G.t - b.kickT < 0.07 && b.kickTeam !== p.team) {
-    b.vx = (b.vx + b.kickVx) * 0.5; b.vy = Math.min(b.vy, b.kickVy) - 380;
+  // two players of opposite sides kicking it at the same moment: it flies off, mostly upward
+  if (G.t - b.kickT < 0.1 && b.kickTeam !== p.team) {
+    const ang = -Math.PI / 2 + (G.rng() - 0.5) * 1.7, csp = 720 + G.rng() * 420;
+    b.vx = Math.cos(ang) * csp; b.vy = Math.sin(ang) * csp;
     ev(G, 'clash', { x: b.x | 0, y: b.y | 0 });
   }
-  b.kickT = G.t; b.kickTeam = p.team; b.kickVx = p.face * Math.cos(a) * sp; b.kickVy = -Math.sin(a) * sp;
-  // out of the shoe, so it does not touch it again at once
-  const [fx2, fy2] = footAt(p, p.kick.t);
-  const dx = b.x - fx2, dy = b.y - fy2, d = Math.hypot(dx, dy) || 1, need = FOOT_R + BALL_R + 1;
-  if (d < need) { b.x = fx2 + dx / d * need; b.y = fy2 + dy / d * need; }
-  p.stats.shots++; b.lastKind = 'kick';
-  ev(G, 'kick', { p: p.i, v: sp | 0, x: b.x | 0, y: b.y | 0 });
+  b.kickT = G.t; b.kickTeam = p.team; b.kickVx = b.vx; b.kickVy = b.vy;
+  // out of the shoe (or off the head), so it does not touch it again at once
+  if (head) {
+    const dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy) || 1, need = p.r + b.r + 1;
+    if (d < need) { b.x = p.x + dx / d * need; b.y = p.y + dy / d * need; }
+  } else {
+    const [fx2, fy2] = footAt(p, p.kick.t);
+    const dx = b.x - fx2, dy = b.y - fy2, d = Math.hypot(dx, dy) || 1, need = FOOT_R + b.r + 1;
+    if (d < need) { b.x = fx2 + dx / d * need; b.y = fy2 + dy / d * need; }
+  }
+  p.stats.shots++; b.lastKind = head ? 'head' : 'kick';
+  ev(G, 'kick', { p: p.i, v: sp | 0, x: b.x | 0, y: b.y | 0, h: head ? 1 : 0 });
   touchBall(G, b, p, true);
 }
 
@@ -601,8 +658,8 @@ function goalCheck(G) {
   const b = G.ball;
   if (G.phase !== 'play') return;
   let side = -1;
-  if (b.x + BALL_R < GOAL_D && b.y > GROUND - G.goalH[0]) side = 0;
-  else if (b.x - BALL_R > W - GOAL_D && b.y > GROUND - G.goalH[1]) side = 1;
+  if (b.x + b.r < GOAL_D && b.y > GROUND - G.goalH[0]) side = 0;
+  else if (b.x - b.r > W - GOAL_D && b.y > GROUND - G.goalH[1]) side = 1;
   if (side < 0) return;
   const team = 1 - side;                 // the team that scores
   G.score[team]++;
@@ -629,12 +686,13 @@ function stepFakes(G, dt) {
       f.vy += ballGravity(G) * h; f.vx *= 1 - 0.1 * h;
       f.x += f.vx * h; f.y += f.vy * h; f.rot += f.av * h;
       ballStatics(G, f, h, false);
-      if (f.x + BALL_R < GOAL_D && f.y > GROUND - G.goalH[0] || f.x - BALL_R > W - GOAL_D && f.y > GROUND - G.goalH[1]) gone = true;
+      const fr = f.r || BALL_R;
+      if (f.x + fr < GOAL_D && f.y > GROUND - G.goalH[0] || f.x - fr > W - GOAL_D && f.y > GROUND - G.goalH[1]) gone = true;
       for (const p of G.players) {
-        const dx = f.x - p.x, dy = f.y - p.y, rr = p.r + BALL_R;
+        const dx = f.x - p.x, dy = f.y - p.y, rr = p.r + fr;
         if (dx * dx + dy * dy < rr * rr) { gone = true; break; }
         const [fx, fy] = footAt(p, p.kick.t);
-        const ex = f.x - fx, ey = f.y - fy, r2 = FOOT_R + BALL_R + 4;
+        const ex = f.x - fx, ey = f.y - fy, r2 = FOOT_R + fr + 4;
         if (ex * ex + ey * ey < r2 * r2) { gone = true; break; }
       }
     }
@@ -648,7 +706,7 @@ function stepItems(G, dt) {
   if (G.setup.items) {
     G.itemT -= dt;
     if (G.itemT <= 0 && G.items.length < 2) {
-      G.itemT = 10 + G.rng() * 6;
+      G.itemT = 7 + G.rng() * 5;
       const k = ITEM_KEYS[Math.floor(G.rng() * ITEM_KEYS.length)];
       const x = 360 + G.rng() * (W - 720);
       G.items.push({ id: ++G.itemSeq, k, x, y: -40, t: 0, hy: 250 + G.rng() * 210 });
@@ -667,7 +725,7 @@ function stepItems(G, dt) {
       if (dx * dx + dy * dy < rr * rr) { who = p; popped = true; break; }
     }
     if (!popped && !b.held) {
-      const dx = b.x - it.x, dy = b.y - iy, rr = BALL_R + 30;
+      const dx = b.x - it.x, dy = b.y - iy, rr = b.r + 30;
       if (dx * dx + dy * dy < rr * rr) { popped = true; if (b.last >= 0 && G.t - b.touchT < 5) who = G.players[b.last]; }
     }
     if (popped) {
@@ -687,7 +745,9 @@ function giveItem(G, p, k) {
   else if (k === 'dash') p.dash = d;
   else if (k === 'freeze') for (const q of foes) { q.frz = Math.max(q.frz, d); q.armed = 0; ev(G, 'freeze', { p: q.i }); }
   else if (k === 'charge') { if (!p.armed) p.gauge = 1; }
-  else if (k === 'goal') { const side = 1 - p.team; G.goalH[side] = GOAL_H_BIG; G.goalBigT[side] = d; }
+  else if (k === 'biggoal') { const side = 1 - p.team; G.goalFx[side] = { k: 'big', t: d }; setGoalH(G, side, GOAL_H_BIG); }
+  else if (k === 'smallgoal') { const side = p.team; G.goalFx[side] = { k: 'small', t: d }; setGoalH(G, side, GOAL_H_SMALL); }
+  else if (k === 'bigball') { G.bigBallT = d; setBallR(G, BALL_R_BIG); }
   else if (k === 'float') G.floatT = d;
   ev(G, 'item', { p: p.i, k });
 }
@@ -697,7 +757,7 @@ function stuckCheck(G, dt) {
   const b = G.ball;
   const sp = Math.hypot(b.vx, b.vy);
   // resting on top of a crossbar
-  const onBar = b.y < GROUND - Math.min(G.goalH[0], G.goalH[1]) - BAR_T && (b.x < GOAL_D + BAR_OUT + 4 || b.x > W - GOAL_D - BAR_OUT - 4);
+  const onBar = (b.x < GOAL_D + BAR_OUT + 4 && b.y < GROUND - G.goalH[0] - BAR_T) || (b.x > W - GOAL_D - BAR_OUT - 4 && b.y < GROUND - G.goalH[1] - BAR_T);
   if (onBar && sp < 120) G.barT += dt; else G.barT = 0;
   if (G.barT > 1.4) { G.barT = 0; b.vx = (b.x < W / 2 ? 1 : -1) * 260; b.vy = -260; ev(G, 'nudge'); }
   // nobody touched it for a long while and it is barely moving
@@ -708,7 +768,7 @@ function stuckCheck(G, dt) {
 // ---------- a little prediction: where the ball goes if nobody touches it ----------
 // (used by the CPU, and by joined phones to show the ball "now")
 function predictBall(G, b0, T, step, out) {
-  const b = { x: b0.x, y: b0.y, vx: b0.vx, vy: b0.vy, rot: 0, av: 0, mode: b0.mode, modeT: b0.modeT };
+  const b = { x: b0.x, y: b0.y, vx: b0.vx, vy: b0.vy, r: b0.r || BALL_R, rot: 0, av: 0, mode: b0.mode, modeT: b0.modeT };
   const pts = out || [];
   pts.length = 0;
   const h = step || 1 / 60, n = Math.ceil(T / h), sub = 2;

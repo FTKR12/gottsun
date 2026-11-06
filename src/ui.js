@@ -19,6 +19,7 @@ function show(name) {
   UI.screen = name;
   const inMatch = !!M.G && M.mode !== 'demo';
   $('#hud').hidden = !(inMatch && (name === 'game'));
+  document.documentElement.classList.toggle('playing', inMatch && name === 'game');
   Input.capture = inMatch && name === 'game';
   updateTouch();
   const sc = $('#scr-' + name);
@@ -46,6 +47,10 @@ function resize() {
     computeView(w, fieldH, DPR, oy);
     V.ch = h; V.y0 = -V.oy / V.s; V.y1 = (h - V.oy) / V.s;
     const r = $('#rotate'); r.style.top = Math.round(oy + fieldH + 12) + 'px'; r.style.bottom = 'auto';
+  } else if (touchShown) {
+    const band = btn + 22, sc = Math.min(w / W, (h - band) / GROUND);
+    computeView(w, h, DPR, (h - band) - GROUND * sc, sc);
+    const r = $('#rotate'); r.style.top = ''; r.style.bottom = '';
   } else { computeView(w, h, DPR); const r = $('#rotate'); r.style.top = ''; r.style.bottom = ''; }
   $('#rotate').hidden = !(touchShown && portrait);
 }
@@ -86,7 +91,7 @@ function startMatch(setup, mode, opt) {
 function stopMatch() { M.G = null; M.mode = ''; M.paused = false; fxReset(); updateTouch(); }
 
 function demoStart() {
-  const chars = [0, 1, 2, 3, 4, 5, 6, 7].sort(() => Math.random() - 0.5);
+  const chars = CHARS.map((_, i) => i).sort(() => Math.random() - 0.5);
   const players = [0, 1, 2, 3].map(i => ({ name: CHARS[chars[i]].name, char: chars[i], team: i % 2, ctrl: 'cpu' }));
   const G = startMatch({ players, time: 9999, items: true, ot: false, stadium: STADIUM_KEYS[(Math.random() * 3) | 0], seed: (Math.random() * 1e9) | 0, lv: 'normal' }, 'demo');
   G.phase = 'play'; G.phaseT = 0; dropBall(G);
@@ -186,7 +191,8 @@ function onEvent(e, remote) {
   const S = (name, a) => { if (!demo) Sound.play(name, a); };
   const P = e.p >= 0 ? G.players[e.p] : null;
   switch (e.k) {
-    case 'kick': ring(e.x, e.y, '#FFFFFF', 12, 64, 0.28, 6); puff(e.x, e.y, 7, '#FFFFFF', 320, 0, 5, 0.3); S('kick', e.v); if (e.v > 1350) FX.shake = Math.max(FX.shake, 0.25); break;
+    case 'kick': ring(e.x, e.y, e.h ? '#FFE36B' : '#FFFFFF', 12, 64, 0.28, 6); puff(e.x, e.y, 7, '#FFFFFF', 320, 0, 5, 0.3); if (e.h) S('head', 900); S('kick', e.v); if (e.v > 1350) FX.shake = Math.max(FX.shake, 0.25); break;
+    case 'dazzle': if (P) { puff(P.x, P.y - P.r * 0.3, 8, '#FFF6A0', 260, 40, 7, 0.5, 'star'); if (!FX.flash) { FX.flash = 0.8; FX.flashCol = '#FFFFFF'; } S('dazzle'); } break;
     case 'head': ring(e.x, e.y, 'rgba(255,255,255,.8)', 10, 46, 0.22, 4); S('head', e.v); break;
     case 'bounce': S('bounce', e.v); if (e.v > 650 && e.y > GROUND - 40) puff(e.x, GROUND - 2, 5, 'rgba(230,240,210,.8)', 160, 60, 6, 0.35); break;
     case 'post': S('post'); puff(e.x, e.y, 6, '#FFF6C0', 260, 0, 4, 0.25); FX.shake = Math.max(FX.shake, 0.2); break;
@@ -210,6 +216,8 @@ function onEvent(e, remote) {
     }
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
+    case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'slip': if (P) { floatText(e.x, e.y - 46, 'すりぬけ！', '#E6DDFF', 30, 0.9); puff(e.x, e.y, 10, '#D9CCFF', 220, 20, 7, 0.5); S('slip'); } break;
     case 'freeze': if (P) { puff(P.x, P.y, 14, '#DFF7FF', 300, 60, 8, 0.6, 'snow'); S('freeze'); } break;
     case 'knock': if (P) { puff(P.x, P.y - P.r, 6, '#FFE14D', 240, 60, 8, 0.5, 'star'); S('knock'); } break;
     case 'poof': puff(e.x, e.y, 9, 'rgba(235,235,245,.85)', 120, 40, 14, 0.5, 'smoke'); S('poof'); break;
@@ -232,11 +240,18 @@ function render(t) {
   drawMatch(ctx, G, t, tags, { hud: !demo });
   if (M.paused && UI.screen === 'game') { worldTransform(ctx); outlined(ctx, '一時停止中', W / 2, 330, 64, '#FFFFFF', 11); }
   // the buttons, while the countdown runs (keyboard players)
-  if (G.phase === 'countdown' && !Touch.on && (M.mode === 'solo' || M.mode === 'guest' || M.mode === 'host')) {
+  if (G.phase === 'countdown' && !demo) {
     worldTransform(ctx);
-    rrect(ctx, W / 2 - 430, 470, 860, 56, 28); ctx.fillStyle = 'rgba(16,22,40,.78)'; ctx.fill();
-    ctx.font = `800 24px ${FONT_UI}`; ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('←→ / A D：うごく　↑ / W：ジャンプ　↓ / S / スペース：キック　E / X：スーパー', W / 2, 499);
+    const keys = !Touch.on && (M.mode === 'solo' || M.mode === 'guest' || M.mode === 'host');
+    const y0 = keys ? 446 : 474, hh = keys ? 92 : 52;
+    rrect(ctx, W / 2 - 440, y0, 880, hh, 26); ctx.fillStyle = 'rgba(16,22,40,.78)'; ctx.fill();
+    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (keys) {
+      ctx.font = `800 24px ${FONT_UI}`;
+      ctx.fillText('←→ / A D：うごく　↑ / W：ジャンプ　↓ / S / スペース：キック　E / X：スーパー', W / 2, y0 + 28);
+    }
+    ctx.font = `800 22px ${FONT_UI}`; ctx.fillStyle = '#FFE58A';
+    ctx.fillText('けり分け：前＋キック＝低いシュート　キックだけ＝ふつう　後ろ＋キック＝高いループ', W / 2, y0 + hh - 26);
   }
 }
 
@@ -347,8 +362,8 @@ function markPick(root, v) { for (const b of root.querySelectorAll('button')) b.
 function pips(n) { let s = '<span class="pips">'; for (let i = 1; i <= 5; i++) s += `<i class="${i <= n ? 'on' : ''}"></i>`; return s + '</span>'; }
 function charInfo(el, ci) {
   const ch = CHARS[ci], sp = SUPERS[ch.sup];
-  el.innerHTML = `<div class="nm">${esc(ch.name)}<small style="font:700 13px var(--font-ui);margin-left:10px;color:var(--chalk-soft)">${esc(ch.blurb)}</small></div>
-    <div class="stats"><span>はやさ ${pips(ch.spd)}</span><span>ジャンプ ${pips(ch.jmp)}</span><span>キック ${pips(ch.kck)}</span></div><div></div>
+  el.innerHTML = `<div class="nm">${esc(ch.name)}<span class="ctype">${esc(ch.type)}</span><small style="font:700 13px var(--font-ui);margin-left:10px;color:var(--chalk-soft)">${esc(ch.blurb)}</small></div>
+    <div class="stats"><span>はやさ ${pips(ch.spd)}</span><span>ジャンプ ${pips(ch.jmp)}</span><span>キック ${pips(ch.kck)}</span><span>からだ ${pips(ch.body)}</span></div><div></div>
     <div class="sup">${sp.icon} <b>${esc(sp.name)}</b>　${esc(sp.desc)}</div>`;
 }
 
@@ -413,7 +428,7 @@ seg('#solo-size', () => solo.size, v => { solo.size = +v; pref.soloSize = solo.s
 seg('#solo-lv', () => rules.lv, v => { rules.lv = v; saveRules(); });
 $('#solo-go').addEventListener('click', () => {
   Sound.ensure(); Sound.play('click');
-  const others = [0, 1, 2, 3, 4, 5, 6, 7].filter(c => c !== solo.char).sort(() => Math.random() - 0.5);
+  const others = CHARS.map((_, i) => i).filter(c => c !== solo.char).sort(() => Math.random() - 0.5);
   const players = [{ name: 'あなた', char: solo.char, team: 0, ctrl: 'local', dev: 'any' }];
   if (solo.size === 2) players.push({ name: CHARS[others[2]].name, char: others[2], team: 0, ctrl: 'cpu' });
   players.push({ name: CHARS[others[0]].name, char: others[0], team: 1, ctrl: 'cpu' });
@@ -429,7 +444,7 @@ function openHowto() {
       const li = document.createElement('li'), c = document.createElement('canvas'); c.width = 104; c.height = 104; drawPortrait(c, i, 0);
       li.appendChild(c);
       const sp = SUPERS[ch.sup];
-      li.insertAdjacentHTML('beforeend', `<b>${esc(ch.name)}　${sp.icon} ${esc(sp.name)}</b><span>${esc(sp.desc)}</span>`);
+      li.insertAdjacentHTML('beforeend', `<b>${esc(ch.name)}（${esc(ch.type)}）　${sp.icon} ${esc(sp.name)}</b><span>${esc(ch.blurb)}。${esc(sp.desc)}</span>`);
       ul.appendChild(li);
     });
     $('#how-items').innerHTML = ITEM_KEYS.map(k => `<li><b>${ITEMS[k].icon} ${esc(ITEMS[k].name)}</b>${esc(ITEMS[k].desc)}</li>`).join('');
@@ -481,7 +496,8 @@ const LL = { slots: [], allReadyT: 0 };
 function devLabel(d) { return DEV_NAME[d] || (/^pad\d$/.test(d) ? 'ゲームパッド' + (+d[3] + 1) : d); }
 function devShort(d) { return devLabel(d).replace(/（.*/, ''); }
 function teamCount(t) { return LL.slots.filter(s => s.team === t).length; }
-function freeChar() { const used = new Set(LL.slots.map(s => s.char)); for (let i = 0; i < 8; i++) if (!used.has(i)) return i; return 0; }
+function freeChar() { const used = new Set(LL.slots.map(s => s.char)); for (let i = 0; i < CHARS.length; i++) if (!used.has(i)) return i; return 0; }
+const NC = CHARS.length;
 function openLocal(keep) {
   if (!keep) LL.slots = [];
   LL.slots.forEach(s => { s.ready = false; });
@@ -506,8 +522,8 @@ function localTick() {
     if (e.start) { localGo(); continue; }
     const s = localSlotOf(dev);
     if (!s) { if (e.k || e.j) localJoin(dev); continue; }
-    if (e.l) { s.char = (s.char + 7) % 8; s.ready = false; Sound.play('click'); }
-    if (e.r) { s.char = (s.char + 1) % 8; s.ready = false; Sound.play('click'); }
+    if (e.l) { s.char = (s.char + NC - 1) % NC; s.ready = false; Sound.play('click'); }
+    if (e.r) { s.char = (s.char + 1) % NC; s.ready = false; Sound.play('click'); }
     if (e.j) { const t = 1 - s.team; if (teamCount(t) < 3) { s.team = t; s.ready = false; Sound.play('click'); } }
     if (e.k) { s.ready = !s.ready; Sound.play(s.ready ? 'join' : 'click'); }
     if (e.s) { if (s.ready) s.ready = false; else LL.slots.splice(LL.slots.indexOf(s), 1); Sound.play('click'); }
@@ -526,7 +542,7 @@ function localPlayers() {
     const used = new Set(ps.map(p => p.char));
     for (let t = 0; t < 2; t++) {
       while (ps.filter(p => p.team === t).length < 2 && ps.length < 4) {
-        let c = 0; while (used.has(c) && c < 7) c++; used.add(c);
+        let c = 0; while (used.has(c) && c < CHARS.length - 1) c++; used.add(c);
         ps.push({ name: CHARS[c].name, char: c, team: t, ctrl: 'cpu' });
       }
     }
@@ -592,8 +608,8 @@ $('#local-field').addEventListener('click', e => {
   if (a === 'touch') { if (!localSlotOf('touch') && LL.slots.length < 4) { localJoin('touch'); const s = localSlotOf('touch'); if (s) { s.team = +b.dataset.t; s.ready = true; } } renderLocal(); return; }
   const slot = b.closest('.slot'); if (!slot) return;
   const s = LL.slots[+slot.dataset.i]; if (!s) return;
-  if (a === 'prev') s.char = (s.char + 7) % 8;
-  if (a === 'next') s.char = (s.char + 1) % 8;
+  if (a === 'prev') s.char = (s.char + NC - 1) % NC;
+  if (a === 'next') s.char = (s.char + 1) % NC;
   if (a === 'team') { const t = 1 - s.team; if (teamCount(t) < 3) s.team = t; }
   if (a === 'del') LL.slots.splice(LL.slots.indexOf(s), 1);
   if (s.cpu) s.ready = true;
@@ -662,7 +678,7 @@ const Net = {
     }
     if (m.t === 'pi') { link.sendRt({ t: 'po', c: m.c }); return; }
     if (m.t === 'hello') {
-      pr.name = String(m.name || 'ゲスト').slice(0, 8) || 'ゲスト'; pr.token = String(m.token || ''); pr.char = clamp(m.char | 0, 0, 7);
+      pr.name = String(m.name || 'ゲスト').slice(0, 8) || 'ゲスト'; pr.token = String(m.token || ''); pr.char = clamp(m.char | 0, 0, CHARS.length - 1);
       if (m.v !== NET_V) {
         link.send({ t: 'ver', v: NET_V });
         this.verErr = pr.name;
@@ -693,7 +709,7 @@ const Net = {
       this.hostLobby(); renderP2P();
       return;
     }
-    if (m.t === 'pick' && !this.inMatch()) { pr.char = clamp(m.char | 0, 0, 7); this.hostLobby(); renderP2P(); return; }
+    if (m.t === 'pick' && !this.inMatch()) { pr.char = clamp(m.char | 0, 0, CHARS.length - 1); this.hostLobby(); renderP2P(); return; }
     if (m.t === 'name' && !this.inMatch()) { pr.name = String(m.name || 'ゲスト').slice(0, 8) || 'ゲスト'; this.hostLobby(); renderP2P(); return; }
     if (m.t === 'pzq' && this.inMatch()) { if (m.on && !M.paused) setPause(true); return; }
   },
@@ -730,7 +746,7 @@ const Net = {
     if (this.lobbyRules.fill) {
       const used = new Set(ps.map(p => p.char));
       for (let t = 0; t < 2; t++) while (ps.filter(p => p.team === t).length < 2 && ps.length < 4) {
-        let c = 0; while (used.has(c) && c < 7) c++; used.add(c);
+        let c = 0; while (used.has(c) && c < CHARS.length - 1) c++; used.add(c);
         ps.push({ name: CHARS[c].name + '（CPU）', char: c, team: t, ctrl: 'cpu' });
       }
     }
@@ -846,7 +862,7 @@ const Net = {
   },
   guestPose(me) {
     const l = this.link; if (!l || !l.open || !M.G) return;
-    l.sendRt({ t: 'p', ep: NetSync.epoch, x: r0(me.x), y: r2(me.y), vx: r0(me.vx), vy: r0(me.vy), g: me.ground ? 1 : 0, ks: me.kick.seq, kt: r3(me.kick.t), ss: me.superSeq, sc: r2(me.scale), rt: r0(NetSync.rtt) });
+    l.sendRt({ t: 'p', ep: NetSync.epoch, x: r0(me.x), y: r2(me.y), vx: r0(me.vx), vy: r0(me.vy), g: me.ground ? 1 : 0, ks: me.kick.seq, kt: r3(me.kick.t), kd: me.kick.dir | 0, ss: me.superSeq, sc: r2(me.scale), rt: r0(NetSync.rtt) });
     const now = performance.now();
     if (now - this.pingT > 1000) { this.pingT = now; l.sendRt({ t: 'pi', c: now }); }
   },
@@ -957,7 +973,7 @@ function renderP2PLobby(isHost) {
     const used = new Set(ms.map(m => m.char));
     for (let t = 0; t < 2; t++) {
       let n = slots.filter(s => s.team === t).length;
-      while (n < 2 && slots.length < 4) { let c = 0; while (used.has(c) && c < 7) c++; used.add(c); slots.push({ name: 'CPU', char: c, team: t, cpu: true, removable: false, sub: '（あいている席）', mid: -1 }); n++; }
+      while (n < 2 && slots.length < 4) { let c = 0; while (used.has(c) && c < CHARS.length - 1) c++; used.add(c); slots.push({ name: 'CPU', char: c, team: t, cpu: true, removable: false, sub: '（あいている席）', mid: -1 }); n++; }
     }
   }
   const f = $('#pp-field');

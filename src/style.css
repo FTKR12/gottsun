@@ -27,7 +27,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0E2A1C;color:var(--ch
 [hidden]{display:none!important}
 button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:disabled{cursor:default}
-#app{position:fixed;inset:0;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+/* during a match the browser gets no gestures at all: no zooming, no scrolling */
+html.playing,html.playing body,html.playing #app{touch-action:none}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 
 /* ---------- screens ---------- */
@@ -105,13 +107,14 @@ button:disabled{cursor:default}
 .seg button:disabled{opacity:.4}
 
 /* ---------- character picker ---------- */
-.pick{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+.pick{display:grid;grid-template-columns:repeat(9,1fr);gap:8px}
 .pick button{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 6px;border-radius:14px;border:0;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 2px var(--chalk-faint);font:800 12px/1.2 var(--font-ui)}
 .pick canvas{width:100%;max-width:72px;aspect-ratio:1;height:auto}
 .pick button[aria-pressed="true"]{background:rgba(255,210,63,.16);box-shadow:inset 0 0 0 3px var(--yellow)}
 .pick .taken{position:absolute;top:4px;right:4px;font-size:10px;padding:1px 5px;border-radius:6px;background:var(--ink)}
 .char-info{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin-top:10px;padding:10px 14px;border-radius:14px;background:rgba(0,0,0,.18);font-size:14px}
 .char-info .nm{grid-column:1/-1;font:400 18px/1.3 var(--font-sign)}
+.char-info .ctype{margin-left:10px;padding:2px 8px;border-radius:6px;background:var(--yellow);color:var(--ink);font:800 12px/1.4 var(--font-ui);vertical-align:3px}
 .char-info .sup{grid-column:1/-1;color:var(--chalk)}
 .char-info .sup b{color:var(--yellow)}
 .pips{display:inline-flex;gap:3px;vertical-align:middle}
@@ -164,6 +167,10 @@ button:disabled{cursor:default}
 .how-card{padding:10px 14px;border-radius:14px;background:rgba(0,0,0,.18)}
 .how-card h3{margin:0 0 4px;font:400 16px/1.3 var(--font-sign)}
 .how-card p{margin:0;font-size:14px;color:var(--chalk-soft)}
+@media (min-width:700px){.how-card.wide{grid-column:span 2}}
+.kick-list{margin:6px 0 0;padding-left:1.1em;font-size:14px;color:var(--chalk-soft)}
+.kick-list li{margin:2px 0}
+.kick-list b{color:#FFE58A}
 .keys-table{width:100%;border-collapse:collapse;font-size:14px}
 .keys-table th,.keys-table td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--chalk-faint)}
 .keys-table thead th{color:var(--chalk-soft);font-weight:800}
@@ -215,7 +222,7 @@ button:disabled{cursor:default}
   .board{padding:16px 14px 14px;border-width:4px}
   .board>.actions{margin:14px -14px -14px;padding:10px 14px 12px;bottom:-14px}
   .board h2{font-size:21px}
-  .pick{grid-template-columns:repeat(4,1fr)}
+  .pick{grid-template-columns:repeat(5,1fr)}
   .title-menu .big{min-height:64px;font-size:20px;min-width:min(260px,100%)}
   .field{grid-template-columns:1fr}
   .field{background:linear-gradient(180deg,transparent calc(50% - 1.5px),var(--chalk-soft) calc(50% - 1.5px) calc(50% + 1.5px),transparent calc(50% + 1.5px))}

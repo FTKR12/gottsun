@@ -7,7 +7,8 @@
 
 function mkCpu(lv, seed) {
   return { lv: CPU_LV[lv] ? lv : 'normal', t: 0, tx: 0, role: 'att', roleT: 0, jumpAt: -1, jumpHold: 0,
-           wantSuper: false, kickCool: 0, rng: mkRng(seed || 7), pts: [], aimErr: 0, stuckT: 0, lastX: 0 };
+           wantSuper: false, kickCool: 0, rng: mkRng(seed || 7), pts: [], aimErr: 0, stuckT: 0, lastX: 0,
+           ball: null, follow: 0, fakeSeen: 0, confT: -1, ghostSeen: -1, ghostSpot: false };
 }
 
 function aiInput(G, p) {
@@ -33,7 +34,7 @@ function aiInput(G, p) {
   const mv = inp.r - inp.l, b = G.ball;
   if (mv && mv === -p.face && !b.held) {
     const rel = (b.x - p.x) * mv;
-    if (rel > -4 && rel < p.r + BALL_R + 46 && b.y > p.y - p.r - BALL_R - 6) {
+    if (rel > -4 && rel < p.r + G.ball.r + 46 && b.y > p.y - p.r - G.ball.r - 6) {
       if (b.y > p.y + p.r * 0.05) { if (p.ground) { inp.jp = 1; inp.j = 1; c.jumpHold = 0.28; } }
       else if (Math.abs(b.vx) < 500 || b.vx * mv > 0) { inp.l = 0; inp.r = 0; }
     }
@@ -45,8 +46,25 @@ function aiInput(G, p) {
   }
   if (c.jumpHold > 0) { inp.j = 1; c.jumpHold -= DT; }
   // kick when the ball is (about to be) in front of the shoe
-  if (c.kickCool <= 0 && kickChance(G, p, c, lv)) { inp.k = 1; c.kickCool = 0.22; }
+  if (c.kickCool <= 0 && kickChance(G, p, c, lv)) {
+    inp.k = 1; c.kickCool = 0.22;
+    // which shot: the direction held while pressing (+1 drive, 0 normal, -1 lob)
+    const ownX = p.team === 0 ? GOAL_D : W - GOAL_D, oppX = p.team === 0 ? W - GOAL_D : GOAL_D, r = c.rng();
+    let shot;
+    if (!p.ground) shot = r < 0.55 ? 1 : 0;
+    else if (Math.abs(p.x - ownX) < 320) shot = r < 0.55 ? -1 : 0;          // clear it, high and far
+    else if (Math.abs(oppX - p.x) < 460) shot = r < 0.55 ? 1 : r < 0.85 ? 0 : -1;
+    else shot = r < 0.4 ? 1 : r < 0.75 ? 0 : -1;
+    const fwd = p.face > 0 ? 'r' : 'l', back = p.face > 0 ? 'l' : 'r';
+    inp.l = 0; inp.r = 0;
+    if (shot > 0) inp[fwd] = 1; else if (shot < 0) inp[back] = 1;
+  }
   if (c.wantSuper && p.gauge >= 1 && !p.armed) { inp.s = 1; c.wantSuper = false; }
+  // dazzled (left and right swapped): after a moment it works that out and presses the other way
+  if (p.conf > 0) {
+    if (c.confT < 0) c.confT = G.t;
+    if (G.t - c.confT > lv.adapt) { const l = inp.l; inp.l = inp.r; inp.r = l; }
+  } else c.confT = -1;
   return inp;
 }
 
@@ -61,8 +79,26 @@ function riseTime(J, h) {
   return (J.v - Math.sqrt(disc)) / J.g;
 }
 
+// the ball this CPU believes is the real one: the clone super can fool it for a while
+function seenBall(G, c) {
+  if (c.follow) {
+    const f = G.fakes.find(f => f.id === c.follow);
+    if (f) return f;
+    c.follow = 0;
+  }
+  return G.ball;
+}
+
 function plan(G, p, c, lv) {
-  const b = G.ball, dir = p.face;
+  // a fresh set of clones from the other side: maybe we chase one of the fakes
+  if (G.fakes.length && G.ball.mode === 'clone' && G.ball.modeTeam !== p.team) {
+    const top = G.fakes[G.fakes.length - 1].id;
+    if (top !== c.fakeSeen) {
+      c.fakeSeen = top;
+      if (c.rng() < lv.fooled) c.follow = G.fakes[Math.floor(c.rng() * G.fakes.length)].id;
+    }
+  }
+  const b = c.ball = seenBall(G, c), dir = p.face;
   const ownX = p.team === 0 ? GOAL_D : W - GOAL_D;
   const mates = G.players.filter(q => q.team === p.team && q !== p);
   const foes = G.players.filter(q => q.team !== p.team);
@@ -70,6 +106,8 @@ function plan(G, p, c, lv) {
   const J = jumpApex(p), sy = standY(p);
   const pts = predictBall(G, b, 2.0, 1 / 60, c.pts);
   c.aimErr = (c.rng() - 0.5) * 2 * lv.err;
+  // the see-through ball is hard to read
+  if (G.ball.mode === 'ghost' && G.ball.modeTeam !== p.team) { c.aimErr = (c.rng() - 0.5) * 2 * (lv.err * 2 + 70); c.t += 0.06; }
   // ---- who attacks ----
   const reachT = q => Math.abs((b.x - q.face * (q.r + 30)) - q.x) / (spdOf(CHARS[q.char].spd) * speedMul(q)) + (((b.x - q.x) * q.face < 0) ? 0.45 : 0);
   if (mates.length) {
@@ -83,7 +121,7 @@ function plan(G, p, c, lv) {
   // ---- the ball's way to our goal ----
   let threat = null;
   for (const q of pts) {
-    if ((q.x - ownX) * dir < 0 && q.y > GROUND - G.goalH[p.team === 0 ? 0 : 1] - BALL_R) { threat = q; break; }
+    if ((q.x - ownX) * dir < 0 && q.y > GROUND - G.goalH[p.team === 0 ? 0 : 1] - G.ball.r) { threat = q; break; }
     if (q.t > 1.8) break;
   }
   const ballOurHalf = (b.x - W / 2) * dir < 0;
@@ -93,8 +131,16 @@ function plan(G, p, c, lv) {
     const myT = interceptTime(G, p, pts), foeT = Math.min(9, ...foes.map(q => interceptTime(G, q, pts)));
     const ballNear = Math.abs(b.x - p.x) < 200 && (b.x - p.x) * dir > -20;
     if (ballNear && !threat) role = 'att';
-    else if (threat) role = (ballNear && (b.x - p.x) * dir > 0) ? 'att' : 'def';
+    // on its way into our goal: guard it (a low one in front still gets kicked away)
+    else if (threat) role = (ballNear && (b.x - p.x) * dir > 0 && b.y > p.y - p.r * 0.2 && Math.abs(b.vx) < 700) ? 'att' : 'def';
     else role = myT < foeT - 0.08 ? 'att' : 'def';
+  } else if (threat) {
+    // on its way into our goal: whoever of us is nearest our goal guards it
+    const near = q => Math.abs(q.x - ownX);
+    if (mates.every(q => near(p) <= near(q) + 1)) {
+      const lowInFront = Math.abs(b.x - p.x) < 200 && (b.x - p.x) * dir > 0 && b.y > p.y - p.r * 0.2 && Math.abs(b.vx) < 700;
+      role = lowInFront ? 'att' : 'def';
+    }
   }
   if (role === 'def' && ballOurHalf && !threat) {
     // the ball is loose in our half and the attacker is far from it: go for it
@@ -112,8 +158,9 @@ function plan(G, p, c, lv) {
     const foeNear = foes.some(q => Math.abs(q.x - b.x) < 240);
     const attackThird = (b.x - (W / 2 + dir * 260)) * dir > 0;
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
-    else if (kind === 'thunder') c.wantSuper = foeNear && (ballOurHalf || attackThird);
+    else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'ramen') c.wantSuper = d < 520;
     else if (kind === 'wind') c.wantSuper = attackThird && (b.x - p.x) * dir > 0 && d < 500 || (!!threat && (b.x - p.x) * dir > -40);
   }
 }
@@ -124,7 +171,7 @@ function interceptTime(G, q, pts) {
   const top = sy - q.r - J.h * 0.9;
   for (const pt of pts) {
     if (pt.y < top) continue;
-    const stand = pt.x - q.face * (q.r + BALL_R * 0.35);
+    const stand = pt.x - q.face * (q.r + G.ball.r * 0.35);
     const around = (pt.x - q.x) * q.face < 0 ? 0.35 : 0;
     if (Math.abs(stand - q.x) / sp + around <= pt.t + 0.04) return pt.t;
   }
@@ -132,34 +179,34 @@ function interceptTime(G, q, pts) {
 }
 
 function planAttack(G, p, c, lv, pts, sp, J, sy) {
-  const b = G.ball, dir = p.face;
+  const b = c.ball || G.ball, dir = p.face;
   const topReach = sy - p.r - J.h * 0.92;      // highest ball centre we can head
   let target = null;
   for (const q of pts) {
-    if (q.y < topReach - BALL_R * 0.3) continue;  // too high to play then
-    const stand = q.x - dir * (p.r + BALL_R * 0.35);
+    if (q.y < topReach - G.ball.r * 0.3) continue;  // too high to play then
+    const stand = q.x - dir * (p.r + G.ball.r * 0.35);
     const need = Math.abs(stand - p.x) / sp;
     if (need <= q.t + 0.04) { target = { q, stand }; break; }
   }
   if (!target) {
     const q = pts[Math.min(pts.length - 1, 50)];
-    target = { q, stand: q.x - dir * (p.r + BALL_R) };
+    target = { q, stand: q.x - dir * (p.r + G.ball.r) };
   }
   const q = target.q;
   // the ball is between us and our own goal: get around it without pushing it home
   const behind = (q.x - p.x) * dir < -6;
   if (behind) {
     const ownX = p.team === 0 ? GOAL_D : W - GOAL_D;
-    const gap = Math.abs(b.x - p.x), low = b.y > p.y + p.r * 0.15, high = b.y < p.y - p.r - BALL_R * 2 - 30;
+    const gap = Math.abs(b.x - p.x), low = b.y > p.y + p.r * 0.15, high = b.y < p.y - p.r - G.ball.r * 2 - 30;
     const nearOwn = Math.abs(b.x - ownX) < 230;
     if (low || high) {
       // a low ball can be hopped over, a high one walked under
-      c.tx = q.x - dir * (p.r + BALL_R + 80);
-      if (low && p.ground && gap < p.r + BALL_R + 48 && (b.x - p.x) * dir < 0) c.jumpAt = G.t;
+      c.tx = q.x - dir * (p.r + G.ball.r + 80);
+      if (low && p.ground && gap < p.r + G.ball.r + 48 && (b.x - p.x) * dir < 0) c.jumpAt = G.t;
     } else {
       // at head height: wait on the far side for it to come down, unless it is heading for our goal
-      c.tx = b.x + dir * (p.r + BALL_R + 46);
-      if (nearOwn && (b.vx * dir < -200)) c.tx = q.x - dir * (p.r + BALL_R + 80);
+      c.tx = b.x + dir * (p.r + G.ball.r + 46);
+      if (nearOwn && (b.vx * dir < -200)) c.tx = q.x - dir * (p.r + G.ball.r + 80);
     }
     if (nearOwn) c.tx = dir > 0 ? Math.max(c.tx, p.r * 0.9) : Math.min(c.tx, W - p.r * 0.9);
   } else {
@@ -170,6 +217,11 @@ function planAttack(G, p, c, lv, pts, sp, J, sy) {
   if (!behind) planHeader(G, p, c, lv, pts, J, sy);
   // standing still under a ball that sits on our head: walk forward
   if (Math.abs(b.x - p.x) < p.r * 0.6 && b.y < p.y - p.r && Math.abs(b.vy) < 80) c.tx = p.x + dir * 120;
+  // alone, nobody minds our goal: do not follow a shot deep into their end (it may come straight back)
+  if (c.role === 'solo' && b.vx * dir > 300 && b.y < sy - p.r * 1.6 && Math.abs(b.x - p.x) > 150) {
+    const oppX = p.team === 0 ? W - GOAL_D : GOAL_D, leash = oppX - dir * 430;
+    if ((c.tx - leash) * dir > 0) c.tx = leash;
+  }
 }
 
 function planHeader(G, p, c, lv, pts, J, sy) {
@@ -192,7 +244,7 @@ function planHeader(G, p, c, lv, pts, J, sy) {
 }
 
 function planDefend(G, p, c, lv, pts, threat, ownX, sp, J, sy) {
-  const b = G.ball, dir = p.face;
+  const b = c.ball || G.ball, dir = p.face;
   const dist = Math.abs(b.x - ownX);
   // stand between the ball and the goal, closer in when the ball is near
   let home = ownX + dir * clamp(20 + dist * 0.08, 30, 120);
@@ -206,7 +258,7 @@ function planDefend(G, p, c, lv, pts, threat, ownX, sp, J, sy) {
       const need = Math.abs(stand - p.x) / sp;
       const headTop = sy - p.r * 1.6;
       const jumpTop = sy - p.r - J.h * 0.9;
-      if (need <= q.t + 0.03 && q.y > jumpTop - BALL_R) {
+      if (need <= q.t + 0.03 && q.y > jumpTop - G.ball.r) {
         best = { q, stand };
         if (q.y > headTop) break;                  // can block it standing
       }
@@ -214,11 +266,17 @@ function planDefend(G, p, c, lv, pts, threat, ownX, sp, J, sy) {
     if (best) {
       c.tx = clamp(best.stand, ownX + dir * (p.r * 0.5), W - p.r);
       if (dir < 0) c.tx = clamp(best.stand, p.r, ownX - p.r * 0.5);
-      const h = sy - best.q.y - p.r * 0.4;
+      // when and how high it passes the spot we stand on
+      let at = best.q;
+      for (const q of pts) {
+        if (q.t > threat.t + 0.05) break;
+        if ((q.x - c.tx) * dir <= p.r * 0.8 + G.ball.r) { at = q; break; }
+      }
+      const h = sy - at.y - p.r * 0.4;
       if (h > p.r * 0.7) {
         const tr = riseTime(J, Math.min(h, J.h * 0.98));
         if (tr >= 0) {
-          let when = G.t + best.q.t - tr;
+          let when = G.t + at.t - tr;
           if (c.rng() < lv.jumpErr) when += (c.rng() - 0.5) * 0.24;
           c.jumpAt = Math.max(G.t, when);
         }
@@ -229,18 +287,26 @@ function planDefend(G, p, c, lv, pts, threat, ownX, sp, J, sy) {
 }
 
 function kickChance(G, p, c, lv) {
-  const b = G.ball;
+  const b = seenBall(G, c);
   if (b.held || p.frz > 0 || p.stn > 0) return false;
-  const dir = p.face;
-  // where the ball will be a moment from now, against where the shoe sweeps
+  // the see-through ball of the other side: only sometimes do we spot it in time to kick it
+  if (b === G.ball && b.mode === 'ghost' && b.modeT > 0 && b.modeTeam !== p.team) {
+    if (c.ghostSeen !== b.launchT) { c.ghostSeen = b.launchT; c.ghostSpot = c.rng() < lv.spot; }
+    if (!c.ghostSpot) return false;
+  }
+  const dir = p.face, R = b.r;
+  // where the ball will be a moment from now
   const la = 0.05;
   const bx = b.x + b.vx * la, by = b.y + b.vy * la;
   const rel = (bx - p.x) * dir;
-  const reach = (p.r + 42) * lv.kickRange;
+  // against the head: a header shot
+  const hd = Math.hypot(bx - p.x, by - p.y);
+  if (rel > -p.r * 0.4 && hd < (p.r + R + 10) * lv.kickRange && by < p.y + p.r * 0.2) return c.rng() < 0.7;
+  // in front of the shoe
+  const reach = (p.r + R + 30) * lv.kickRange;
   if (rel < -4 || rel > reach) return false;
   const [, py] = pivotOf(p);
   if (by < p.y - p.r * 0.45 || by > GROUND) return false;
-  // don't blast it into our own goal from right in front of it (we always kick forward, so fine)
-  if (Math.abs(by - py) > 95) return false;
+  if (Math.abs(by - py) > 100) return false;
   return c.rng() < 0.85;
 }

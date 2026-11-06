@@ -313,12 +313,12 @@ function encodeSnap(G, seq) {
   const b = G.ball;
   return {
     t: 's', q: seq, T: r3(G.t), ph: PH[G.phase], pt: r2(G.phaseT), ck: r2(G.clock), ot: G.ot ? 1 : 0, sc: G.score, ep: G.epoch,
-    b: [r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot), b.held ? 1 : 0, Math.max(0, MODES.indexOf(b.mode)), r2(b.modeT), b.modeTeam, b.last],
+    b: [r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot), b.held ? 1 : 0, Math.max(0, MODES.indexOf(b.mode)), r2(b.modeT), b.modeTeam, b.last, b.r, b.ghostP],
     f: G.fakes.map(f => [f.id, r0(f.x), r0(f.y), r0(f.vx), r0(f.vy)]),
     p: G.players.map(p => [r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), p.ground ? 1 : 0, p.kick.t >= 0 ? r3(p.kick.t) : -1, p.kick.seq,
-      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0)]),
+      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow)]),
     it: G.items.map(i => [i.id, ITEM_KEYS.indexOf(i.k), r0(i.x), r0(i.y), r2(i.t)]),
-    gh: G.goalH, gb: [r2(G.goalBigT[0]), r2(G.goalBigT[1])], fl: r2(G.floatT), wd: [G.wind.team, r2(G.wind.t)],
+    gh: G.goalH, gx: G.goalFx.map(f => [f.k, r2(f.t)]), bb: r2(G.bigBallT), fl: r2(G.floatT), wd: [G.wind.team, r2(G.wind.t)],
     lg: G.lastGoal ? [G.lastGoal.team, G.lastGoal.p, G.lastGoal.own ? 1 : 0] : null,
     ev: G.evs.filter(e => G.t - e.t < 0.6 && !NET_SKIP_EV.has(e.k)),
   };
@@ -337,7 +337,8 @@ function guestApplySnap(G, s, myIdx, onEvent) {
   NetSync.snap = s; NetSync.snapAt = performance.now();
   const prevPhase = G.phase;
   G.phase = PH_NAME[s.ph] || 'play'; G.phaseT = s.pt; G.clock = s.ck; G.ot = !!s.ot; G.score = s.sc;
-  G.goalH = s.gh; G.goalBigT = s.gb; G.floatT = s.fl; G.wind.team = s.wd[0]; G.wind.t = s.wd[1];
+  G.goalH = s.gh; G.goalFx = s.gx.map(a => ({ k: a[0], t: a[1] })); G.bigBallT = s.bb; G.floatT = s.fl; G.wind.team = s.wd[0]; G.wind.t = s.wd[1];
+  G.ball.r = s.b[10] || BALL_R;
   if (s.lg) G.lastGoal = { team: s.lg[0], p: s.lg[1], own: !!s.lg[2] };
   if (G.phase === 'end' && !G.result) { const sc = G.score; G.result = { win: sc[0] > sc[1] ? 0 : sc[1] > sc[0] ? 1 : -1, score: sc.slice() }; }
   // items and the clone decoys simply follow
@@ -345,7 +346,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
   // players: effects for everyone; positions only for the ones this phone does not move
   s.p.forEach((a, i) => {
     const p = G.players[i]; if (!p) return;
-    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16];
+    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0;
     if (p.i !== myIdx) {
       p.scale = a[15]; p.r = HEAD_R * p.scale; p.landT = a[17];
       if (a[5] >= 0) { if (p.kick.seq !== a[6] || p.kick.t < 0) { p.kick.seq = a[6]; p.kick.t = a[5]; } } else p.kick.t = -1;
@@ -392,21 +393,21 @@ function guestExtrapolate(G, dtFrame) {
     if (p.kick.t >= 0) { p.kick.t += dtFrame; if (p.kick.t > KICK_FWD + KICK_BACK) p.kick.t = -1; }
   });
   // the fakes
-  G.fakes = s.f.map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], rot: 0, av: 0 }));
+  G.fakes = s.f.map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], r: G.ball.r, rot: 0, av: 0 }));
   // the ball: run it forward from the picture, bouncing off the walls and off this phone's own player
   const sb = s.b, b = G.ball;
-  b.held = !!sb[5]; b.mode = MODES[sb[6]] || ''; b.modeT = Math.max(0, sb[7] - age); b.modeTeam = sb[8]; b.last = sb[9];
+  b.held = !!sb[5]; b.mode = MODES[sb[6]] || ''; b.modeT = Math.max(0, sb[7] - age); b.modeTeam = sb[8]; b.last = sb[9]; b.ghostP = sb[11] == null ? -1 : sb[11];
   let px, py, vx = sb[2], vy = sb[3];
   if (b.held) { px = sb[0]; py = sb[1]; }
   else {
-    const fb = { x: sb[0], y: sb[1], vx, vy, rot: 0, av: 0 };
+    const fb = { x: sb[0], y: sb[1], vx, vy, r: b.r, rot: 0, av: 0 };
     const n = Math.ceil(age / (1 / 240)), h = n ? age / n : 0;
     const noGrav = (b.mode === 'fire' || b.mode === 'rocket') && b.modeT > 0;
     for (let k = 0; k < n; k++) {
       if (!noGrav) fb.vy += ballGravity(G) * h;
       fb.x += fb.vx * h; fb.y += fb.vy * h;
       ballStatics(G, fb, h, false);
-      for (const p of G.players) if (p.owned) predictBounce(fb, p);
+      for (const p of G.players) if (p.owned && !(b.mode === 'ghost' && b.modeT > 0 && b.modeTeam !== p.team && b.ghostP === p.i)) predictBounce(fb, p);
     }
     px = fb.x; py = fb.y; vx = fb.vx; vy = fb.vy;
   }
@@ -418,14 +419,14 @@ function guestExtrapolate(G, dtFrame) {
   NetSync.ballErr[0] *= decay; NetSync.ballErr[1] *= decay;
   b.prevX = b.x; b.prevY = b.y;
   b.x = px + NetSync.ballErr[0]; b.y = py + NetSync.ballErr[1]; b.vx = vx; b.vy = vy;
-  b.rot = (b.rot || 0) + (b.y + BALL_R >= GROUND - 1 ? b.vx / BALL_R : (b.av || 0)) * dtFrame;
+  b.rot = (b.rot || 0) + (b.y + b.r >= GROUND - 1 ? b.vx / b.r : (b.av || 0)) * dtFrame;
   bd.px = b.x; bd.py = b.y;
 }
 // the ball against a head and body, without any of the rules (only to draw it on a joined phone).
 // Only a ball coming in fast is bounced here; a slow or resting one is left where the host says,
 // because the host saw this player a few hundredths of a second ago, a little elsewhere.
 function predictBounce(b, p) {
-  const R = BALL_R;
+  const R = b.r || BALL_R;
   const cr = p.r * 0.52, y0 = p.y + p.r * 0.3, y1 = Math.max(y0, p.y + footOff(p) - cr);
   const qy = clamp(b.y, y0, y1);
   for (const [cx, cy, rr, e] of [[p.x, qy, cr + R, 0.32], [p.x, p.y, p.r + R, 0.5]]) {
@@ -451,7 +452,7 @@ function hostPlaceRemote(G, p, pose, rttMs) {
   p.x = clamp(x, p.r, W - p.r); p.y = y; p.vx = pose.vx; p.vy = vy; p.ground = !!pose.g;
   if (pose.ks !== p._netKs) {
     p._netKs = pose.ks;
-    if (pose.kt >= 0 && pose.kt < KICK_FWD + KICK_BACK) { p.kick.seq = pose.ks; p.kick.t = clamp(pose.kt + age, 0, KICK_FWD * 0.85); p.kick.hit = false; }
+    if (pose.kt >= 0 && pose.kt < KICK_FWD + KICK_BACK) { p.kick.seq = pose.ks; p.kick.t = clamp(pose.kt + age, 0, KICK_FWD * 0.85); p.kick.hit = false; p.kick.dir = pose.kd | 0; }
   }
   if (pose.ss !== p._netSs) {
     const more = (pose.ss | 0) - (p._netSs | 0);

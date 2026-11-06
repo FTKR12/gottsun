@@ -120,6 +120,13 @@ const Sound = (() => {
     bolt() { noise({ ft: 'lowpass', f: 5000, f2: 160, d: 0.9, v: 0.45 }); tone({ f: 60, f2: 30, d: 0.6, v: 0.3, type: 'sawtooth' }); },
     giant() { tone({ f: 140, f2: 340, d: 0.5, v: 0.22, type: 'triangle', vib: 12, vibD: 20 }); },
     wind() { noise({ ft: 'bandpass', f: 300, f2: 1100, d: 1.6, v: 0.3, q: 0.5, a: 0.2 }); },
+    dazzle() { for (let i = 0; i < 6; i++) tone({ f: 1400 + i * 380, d: 0.18, v: 0.06, at: i * 0.035, type: 'triangle' }); tone({ f: 300, f2: 2400, d: 0.35, v: 0.06, type: 'sine' }); },
+    slip() { tone({ f: 900, f2: 380, d: 0.4, v: 0.09, vib: 9, vibD: 40 }); },
+    ramen() {
+      if (!rate('ramen', 0.15)) return;
+      tone({ f: 523, d: 0.12, v: 0.1, type: 'triangle' }); tone({ f: 659, d: 0.12, v: 0.1, type: 'triangle', at: 0.09 });
+      tone({ f: 784, d: 0.25, v: 0.1, type: 'triangle', at: 0.18 }); noise({ ft: 'lowpass', f: 1200, f2: 600, d: 0.5, v: 0.08, at: 0.05 });
+    },
     freeze() { noise({ f: 4200, d: 0.12, v: 0.2 }); for (let i = 0; i < 4; i++) tone({ f: 2200 - i * 220, d: 0.12, v: 0.06, at: 0.04 + i * 0.05 }); },
     knock() { tone({ f: 300, f2: 90, d: 0.25, v: 0.25, type: 'square' }); },
     poof() { if (!rate('poof', 0.05)) return; noise({ f: 700, d: 0.2, v: 0.15, q: 0.7 }); },
