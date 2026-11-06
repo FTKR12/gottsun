@@ -219,6 +219,15 @@ function onEvent(e, remote) {
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
     case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'gift': if (P) { S('peel'); } break;
+    case 'giftWin': if (P) {
+      const amt = e.amt || 0, big = amt >= 10000;
+      FX.banner = { text: (big ? '💰 ' : '🎁 ') + '¥' + amt.toLocaleString('ja-JP') + (big ? ' 大当たり！' : amt >= 5000 ? ' あたり！' : amt >= 3000 ? ' まあまあ' : ' しょぼ…'), sub: M.label[P.i] || P.name, t: 0, max: 1.6, col: big ? '#B8860B' : TEAM_COL[P.team].deep, dir: P.team ? -1 : 1, size: big ? 60 : 48 };
+      if (amt >= 5000) puff(P.x, P.y - P.r - 100, big ? 40 : 18, '#FFD740', 420, 120, 8, 1.2, 'confetti');
+      if (big) { FX.flash = 0.5; FX.flashCol = '#FFF3B0'; FX.shake = Math.max(FX.shake, 0.3); }
+      S(big ? 'jackpot' : amt >= 5000 ? 'item' : 'click');
+    } break;
+    case 'coin': puff(e.x, e.y, 6, '#FFD23A', 260, 60, 6, 0.4, 'star'); S('coin'); break;
     case 'event': { const evd = EVENTS[e.ek]; if (evd) { FX.banner = { text: evd.text, sub: 'イベント発生！', t: 0, max: 1.8, col: '#7A3FC2', dir: 1, size: 54 }; S('event'); } break; }
     case 'present': if (P) { floatText(P.x, P.y - P.r - 54, 'では、始めます。', '#CFE3FF', 32, 1.2); FX.flash = 0.35; FX.flashCol = '#DDEBFF'; S('present'); } break;
     case 'meteor': puff(e.x, e.y, 9, '#DFF4FF', 320, 80, 7, 0.45, 'star'); ring(e.x, e.y, 'rgba(160,220,255,.9)', 10, 70, 0.3, 6); S('meteor'); break;
@@ -228,7 +237,7 @@ function onEvent(e, remote) {
     case 'sizzle': ring(e.x, e.y, '#FF6A2A', 12, 70, 0.3, 7); puff(e.x, e.y, 8, '#FFB347', 300, 40, 7, 0.4, 'flame'); S('sizzle'); break;
     case 'flex': if (P) { floatText(P.x, P.y - P.r - 50, 'ムキッ！', '#FFE1B0', 40, 1.0); ring(P.x, P.y, '#FFB07A', 30, 160, 0.45, 9); S('flex'); } break;
     case 'punch': floatText(e.x, e.y - 40, 'ドン！', '#FFFFFF', 38, 0.7); puff(e.x, e.y, 10, '#FFE9A0', 360, 0, 7, 0.35, 'star'); ring(e.x, e.y, '#FFB07A', 14, 80, 0.3, 7); FX.shake = Math.max(FX.shake, 0.22); S('punch'); break;
-    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : e.how === 'burn' ? 'あちっ！' : e.how === 'meteor' ? 'ドカッ' : 'ゴツッ', e.how === 'burn' ? '#FFC2A8' : '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); } break;
+    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : e.how === 'burn' ? 'あちっ！' : e.how === 'meteor' ? 'ドカッ' : 'ゴツッ', e.how === 'burn' ? '#FFC2A8' : '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); if (CHARS[P.char].plates) { floatText(P.x - P.face * P.r, P.y - P.r * 1.4, 'ガシャーン', '#FFFFFF', 26, 0.7); puff(P.x - P.face * P.r * 1.2, P.y - P.r * 0.4, 10, '#F3F6FA', 300, 120, 6, 0.6, 'confetti'); S('plate'); } } break;
     case 'ko': if (P) { floatText(P.x, P.y - P.r - 60, 'ダウン！', '#FF8A8A', 42, 1.4); puff(P.x, P.y - P.r, 12, '#FFE14D', 300, 80, 9, 0.7, 'star'); FX.shake = Math.max(FX.shake, 0.3); S('ko'); } break;
     case 'slip': if (P) { floatText(e.x, e.y - 46, 'すりぬけ！', '#E6DDFF', 30, 0.9); puff(e.x, e.y, 10, '#D9CCFF', 220, 20, 7, 0.5); S('slip'); } break;
     case 'freeze': if (P) { puff(P.x, P.y, 14, '#DFF7FF', 300, 60, 8, 0.6, 'snow'); S('freeze'); } break;

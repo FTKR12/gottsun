@@ -171,6 +171,7 @@ function plan(G, p, c, lv) {
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
     else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'gift') c.wantSuper = d < 520 || !!threat;
     else if (kind === 'slide') c.wantSuper = foeNear || !!threat || attackThird;
     else if (kind === 'drink') c.wantSuper = (foeNear && (ballOurHalf || attackThird)) || !!threat;
     else if (kind === 'hot') c.wantSuper = (d < 420 && front) || !!threat;

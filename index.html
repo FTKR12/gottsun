@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1F5E3A">
-<meta name="gottsun-build" content="3d9f0ac9f2">
+<meta name="gottsun-build" content="87477e757c">
 <meta name="description" content="大きな頭でヘディング！4人まで遊べるあたまサッカー。CPU対戦、1台でみんなで、スマホを合言葉でつないで遊べます。">
 <title>ゴッツンサッカー</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
@@ -121,7 +121,7 @@ html.playing,html.playing body,html.playing #app{touch-action:none}
 .seg button:disabled{opacity:.4}
 
 /* ---------- character picker ---------- */
-.pick{display:grid;grid-template-columns:repeat(13,1fr);gap:4px}
+.pick{display:grid;grid-template-columns:repeat(14,1fr);gap:4px}
 .pick button{font-size:11px}
 .pick button{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 6px;border-radius:14px;border:0;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 2px var(--chalk-faint);font:800 12px/1.2 var(--font-ui)}
 .pick canvas{width:100%;max-width:72px;aspect-ratio:1;height:auto}
@@ -527,7 +527,9 @@ const GAUGE_CONCEDE = 0.18;
 const HIT_STUN = 2.6;       // knocked down this long when the health runs out
 const HOT_T = 6;           // まっかっかヘッド
 const DRUNK_T = 5;
-const PRESENT_T = 4.6;     // 冷徹プレゼン: the slides are up this long (the meteors fall in the middle of it)         // のめのめ攻撃: tipsy this long
+const PRESENT_T = 4.6;
+const GIFT_T = 1.4;        // the gift card: peeling it open takes this long, then the amount shows
+const GIFT_AMOUNTS = [1000, 3000, 5000, 10000];     // 冷徹プレゼン: the slides are up this long (the meteors fall in the middle of it)         // のめのめ攻撃: tipsy this long
 const MUSCLE_T = 7;        // ムキムキうで lasts this long (the first part is the flex)
 const FIST_R = 0.4;        // the muscle fist, in head radii// ... for the team that let a goal in
 
@@ -571,6 +573,8 @@ const CHARS = [
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
   { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'drink', mass: 1, beer: true,
     skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
+  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true,
+    skin: '#F5D0B5', hair: '#5A3A28', hair2: '#8A5E42', look: 'lapis', blurb: 'なぜか帰宅したはずなのに、閉店後に控え室に必ず出現する。中学生の時にタバコを吸ってるのがバレたんだとか。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
 
@@ -585,6 +589,7 @@ const SUPERS = {
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  gift:    { name: 'Amazonギフトカード開封', icon: '🎁', armed: false, desc: 'ペリペリ開封！ 1000円・3000円・5000円・10000円のどれかが出て、高いほど強い必殺技になる。10000円は全部のせ' },
   slide:   { name: '冷徹プレゼン',     icon: '📊', armed: false, desc: 'パワポを発動！ 冷徹な顔でスライドを見せつけると、相手チームの上に流星群がふりそそぐ' },
   drink:   { name: 'のめのめ攻撃',     icon: '🍺', armed: false, desc: '相手チーム全員にビールをのませる！ のまされた相手は5秒間よっぱらってフラフラ' },
   hot:     { name: 'まっかっかヘッド', icon: '🥵', armed: false, desc: '顔が真っ赤に！ 6秒間、頭がアツアツになって、当たったボールはロケットみたいに飛んでいく。さわった相手は「あちっ！」' },
@@ -710,7 +715,7 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0, present: 0,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0, present: 0, giftT: 0, giftAmt: 0, giftShow: 0, coinT: 0,
     hp: 1, hurtT: -9, burnT: -9, meteorT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
@@ -855,6 +860,7 @@ function step(G, inputs) {
   separatePlayers(G);
   hitPlayers(G);
   stepMeteors(G, DT);
+  stepGifts(G, DT);
   if (!G.ball.held) {
     for (let s = 0; s < SUB; s++) ballSub(G, DT / SUB, s);
     stepFakes(G, DT);
@@ -922,6 +928,8 @@ function tickTimers(G, p, dt) {
   if (p.hot > 0) p.hot = Math.max(0, p.hot - dt);
   if (p.drunk > 0) p.drunk = Math.max(0, p.drunk - dt);
   if (p.present > 0) p.present = Math.max(0, p.present - dt);
+  if (p.giftShow > 0) p.giftShow = Math.max(0, p.giftShow - dt);
+  if (p.coinT > 0) p.coinT = Math.max(0, p.coinT - dt);
   // health: full again after a knock-down, and slowly back when left alone for a while
   if (p.hp < 1) {
     if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
@@ -1064,6 +1072,12 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'gift') {
+    // the amount is decided now (and shown when the card is open)
+    const r = G.rng();
+    p.giftAmt = r < 0.3 ? 1000 : r < 0.6 ? 3000 : r < 0.85 ? 5000 : 10000;
+    p.giftT = GIFT_T;
+    ev(G, 'gift', { p: p.i, amt: p.giftAmt });
   } else if (kind === 'slide') {
     p.present = PRESENT_T; p.meteorAcc = 0;
     ev(G, 'present', { p: p.i });
@@ -1474,6 +1488,7 @@ function stepMeteors(G, dt) {
     if (!boom) for (const q of G.players) if (q.team !== m.team && touchesPlayer(q, m.x, m.y, 16)) { boom = true; break; }
     if (!boom) continue;
     const by = G.players[m.by] || null;
+    if (m.coin) ev(G, 'coin', { x: m.x | 0, y: Math.min(m.y, GROUND - 8) | 0 });
     for (const q of G.players) {
       if (q.team === m.team || q.stn > 0 || G.t - q.meteorT < 0.45) continue;
       if (touchesPlayer(q, m.x, m.y, 44)) { q.meteorT = G.t; hurt(G, by, q, 'meteor', m.x, m.y); }
@@ -1481,6 +1496,46 @@ function stepMeteors(G, dt) {
     ev(G, 'meteor', { x: m.x | 0, y: Math.min(m.y, GROUND - 8) | 0 });
     G.meteors.splice(i, 1);
   }
+}
+
+// ---------- ラピス: the gift card ----------
+function stepGifts(G, dt) {
+  for (const p of G.players) {
+    if (p.giftT > 0) {
+      p.giftT -= dt;
+      if (p.giftT <= 0) { p.giftT = 0; applyGift(G, p, p.giftAmt); }
+    }
+    // ¥10,000: money rains on the other side
+    if (p.coinT > 0 && G.phase === 'play') {
+      p.coinAcc = (p.coinAcc || 0) + dt;
+      while (p.coinAcc >= 0.14) {
+        p.coinAcc -= 0.14;
+        const foes = G.players.filter(q => q.team !== p.team);
+        const half = p.team === 0 ? W / 2 + G.rng() * W / 2 : G.rng() * W / 2;
+        const aim = foes.length && G.rng() < 0.7 ? foes[Math.floor(G.rng() * foes.length)].x + (G.rng() - 0.5) * 300 : half;
+        const tx = clamp(aim, 30, W - 30), vy = 900 + G.rng() * 200, vx = (G.rng() - 0.5) * 240, tt = (GROUND + 40) / vy;
+        G.meteors.push({ id: ++G.meteorSeq, x: tx - vx * tt, y: -40, vx, vy, team: p.team, by: p.i, coin: 1 });
+      }
+    }
+  }
+}
+function applyGift(G, p, amt) {
+  const mates = G.players.filter(q => q.team === p.team), foes = G.players.filter(q => q.team !== p.team);
+  const oppSide = 1 - p.team;
+  p.giftShow = 1.6;
+  if (amt >= 1000) { p.dash = Math.max(p.dash, 5); p.hp = Math.min(1, p.hp + 0.3); }
+  if (amt >= 3000) { p.dash = Math.max(p.dash, 7); p.pow = Math.max(p.pow, 7); p.hp = 1; }
+  if (amt >= 5000) {
+    for (const q of mates) { q.dash = Math.max(q.dash, 7); q.pow = Math.max(q.pow, 7); }
+    G.goalFx[oppSide] = { k: 'big', t: 8 }; setGoalH(G, oppSide, GOAL_H_BIG);
+  }
+  if (amt >= 10000) {
+    for (const q of mates) { q.dash = Math.max(q.dash, 8); q.pow = Math.max(q.pow, 8); q.hp = 1; }
+    G.goalFx[oppSide] = { k: 'big', t: 10 };
+    for (const q of foes) { q.stn = Math.max(q.stn, 2); q.armed = 0; ev(G, 'bolt', { p: q.i }); }
+    p.coinT = 2.6; p.coinAcc = 0;
+  }
+  ev(G, 'giftWin', { p: p.i, amt });
 }
 
 // ---------- the イベント mode: something happens every so often ----------
@@ -1894,6 +1949,7 @@ function plan(G, p, c, lv) {
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
     else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'gift') c.wantSuper = d < 520 || !!threat;
     else if (kind === 'slide') c.wantSuper = foeNear || !!threat || attackThird;
     else if (kind === 'drink') c.wantSuper = (foeNear && (ballOurHalf || attackThird)) || !!threat;
     else if (kind === 'hot') c.wantSuper = (d < 420 && front) || !!threat;
@@ -2368,6 +2424,7 @@ function drawPlayer(c, p, G, t, opt) {
   if (ch.limbs) drawLimbs(c, p, ch, G, t, fx, fy, kicking);
   if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'back');
   if (ch.beer) drawBeerArm(c, p, ch, G, t);
+  if (ch.plates) drawPlates(c, p, ch, G, t);
   if (!kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
   c.save();
   c.translate(p.x, p.y);
@@ -2423,6 +2480,7 @@ function drawPlayer(c, p, G, t, opt) {
   c.restore();
   if (kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
   if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'front');
+  if (p.giftT > 0 || p.giftShow > 0) drawGift(c, p, t);
   // frozen: an ice block over everything
   if (p.frz > 0) {
     const a = Math.min(1, p.frz * 3);
@@ -2455,7 +2513,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928', slide: '#7FB2FF' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928', slide: '#7FB2FF', gift: '#FFC93A' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -2535,6 +2593,14 @@ function drawFloaties(c, G, t) {
 }
 function drawMeteors(c, G, t) {
   for (const m of G.meteors) {
+    if (m.coin) {
+      // a gold coin, spinning on its way down
+      const w = Math.abs(Math.cos(t * 9 + m.id)) * 18 + 4;
+      c.fillStyle = 'rgba(255,230,120,.35)'; circ(c, m.x, m.y, 26); c.fill();
+      ell(c, m.x, m.y, w, 20); fillOut(c, '#FFC93A', 2.5);
+      if (w > 10) { c.fillStyle = '#B07A10'; c.font = `900 22px ${FONT_UI}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('¥', m.x, m.y + 1); }
+      continue;
+    }
     const sp = Math.hypot(m.vx, m.vy) || 1, ux = m.vx / sp, uy = m.vy / sp, L = 150;
     const g = c.createLinearGradient(m.x, m.y, m.x - ux * L, m.y - uy * L);
     g.addColorStop(0, 'rgba(230,250,255,.95)'); g.addColorStop(0.4, 'rgba(120,200,255,.55)'); g.addColorStop(1, 'rgba(90,140,255,0)');
@@ -2543,6 +2609,56 @@ function drawMeteors(c, G, t) {
     c.fillStyle = 'rgba(160,220,255,.45)'; circ(c, m.x, m.y, 20); c.fill();
     starShape(c, m.x, m.y, 15, 6.5, t * 8 + m.id); fillOut(c, '#FFFFFF', 2.5);
   }
+}
+
+// ラピス: a tall stack of plates held up on one hand at the back, wobbling as she goes
+function drawPlates(c, p, ch, G, t) {
+  const r = p.r, f = p.face, k = Math.sqrt(p.scale);
+  const run = clamp(Math.abs(p.vx) / 300, 0, 1), wob = Math.sin(t * 11 + p.i) * 0.06 * run + clamp(-p.vx * f / 3000, -0.12, 0.12);
+  const S = [p.x - f * r * 0.55, p.y + r * 0.62], H = [p.x - f * r * 1.22, p.y - r * 0.05];
+  const w = 9 * k;
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = OUT; c.lineWidth = w + 5; c.beginPath(); c.moveTo(S[0], S[1]); c.lineTo(H[0] + f * 4, H[1] + r * 0.45); c.lineTo(H[0], H[1]); c.stroke();
+  c.strokeStyle = '#F2EFE6'; c.lineWidth = w; c.beginPath(); c.moveTo(S[0], S[1]); c.lineTo(H[0] + f * 4, H[1] + r * 0.45); c.lineTo(H[0], H[1]); c.stroke();
+  // the stack
+  c.save(); c.translate(H[0], H[1] - 4); c.rotate(wob * f);
+  const n = 7, pw = r * 0.95, ph = r * 0.13;
+  for (let i = 0; i < n; i++) {
+    const y = -i * ph * 0.95 - ph * 0.5, sway = Math.sin(t * 7 + i * 0.7) * run * i * 0.6;
+    ell(c, sway, y, pw / 2, ph * 0.62); fillOut(c, i % 2 ? '#FFFFFF' : '#F3F6FA', 2.2);
+    c.strokeStyle = 'rgba(80,140,200,.55)'; c.lineWidth = 1.6; c.beginPath(); c.ellipse(sway, y - 1, pw * 0.36, ph * 0.3, 0, Math.PI * 1.05, Math.PI * 1.95); c.stroke();
+  }
+  c.restore();
+  circ(c, H[0], H[1], w * 0.75); fillOut(c, ch.skin, 2.4);
+}
+// the gift card above ラピス: peeled open, then the amount
+function drawGift(c, p, t) {
+  const x = p.x, y = p.y - p.r - 120;
+  c.save(); c.translate(x, y);
+  if (p.giftT > 0) {
+    const u = 1 - p.giftT / GIFT_T, shake = Math.sin(t * 40) * 3 * (1 - u);
+    c.translate(shake, 0);
+    // the card
+    const w = 150, h = 92;
+    rrect(c, -w / 2, -h / 2, w, h, 12); fillOut(c, '#FFF6E0', 3);
+    c.fillStyle = '#E5322D'; c.fillRect(-w / 2 + 18, -h / 2, 14, h); c.fillRect(-w / 2, -6, w, 12);
+    c.fillStyle = '#1B2030'; c.font = `900 18px ${FONT_UI}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('GIFT CARD', 14, -24);
+    // the silver scratch strip being peeled away
+    const peel = clamp(u * 1.3, 0, 1);
+    c.fillStyle = '#C8CDD6'; c.fillRect(-w / 2 + 40 + (w - 52) * peel, 12, (w - 52) * (1 - peel), 24);
+    c.fillStyle = '#1B2030'; c.font = `900 18px ${FONT_UI}`; c.fillText('¥ ?????', 18, 24);
+    if (u > 0.2) { c.fillStyle = `rgba(255,255,255,${0.6 * Math.sin(t * 20) ** 2})`; starShape(c, -w / 2 + 40 + (w - 52) * peel, 20, 12, 4, t * 6); c.fill(); }
+    outlined(c, 'ペリペリ…', 0, -h / 2 - 22, 24, '#FFFFFF', 5);
+  } else {
+    const amt = p.giftAmt, big = amt >= 10000, k = Math.min(1, (1.6 - p.giftShow) / 0.15);
+    c.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
+    const label = '¥' + amt.toLocaleString('ja-JP');
+    const col = amt >= 10000 ? '#FFD23A' : amt >= 5000 ? '#FFB347' : amt >= 3000 ? '#BFE6FF' : '#E6E6E6';
+    if (big) { const g = c.createRadialGradient(0, 0, 10, 0, 0, 130); g.addColorStop(0, 'rgba(255,230,120,.7)'); g.addColorStop(1, 'rgba(255,230,120,0)'); c.fillStyle = g; circ(c, 0, 0, 130); c.fill(); }
+    outlined(c, label, 0, 0, big ? 64 : 48, col, 9);
+    outlined(c, amt >= 10000 ? '大当たり！！' : amt >= 5000 ? 'あたり！' : amt >= 3000 ? 'まあまあ' : 'しょぼ…', 0, big ? 46 : 38, 24, '#FFFFFF', 5);
+  }
+  c.restore();
 }
 
 // a glass beer mug, in units where the mug is about s tall (drawn around its middle)
@@ -2767,6 +2883,14 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     for (const [x0, y0, x1, y1, x2, y2] of [[-1.16, -0.05, -0.98, 0.22, -1.1, 0.5], [-0.92, -0.72, -0.66, -0.6, -0.74, -0.3], [-0.36, -1.08, -0.1, -0.94, 0.12, -1.06], [0.62, -1.0, 0.86, -0.86, 0.98, -0.6]]) {
       c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x1, y1, x2, y2); c.stroke();
     }
+  } else if (look === 'lapis') {
+    // a soft, permed bob in brown, curls all round
+    c.fillStyle = ch.hair;
+    const curls = [[-1.0, 0.35, 0.36], [-1.08, -0.05, 0.4], [-0.95, -0.5, 0.42], [-0.6, -0.88, 0.42], [-0.15, -1.06, 0.42], [0.32, -1.04, 0.4], [0.72, -0.82, 0.36], [0.96, -0.45, 0.3], [-0.78, 0.62, 0.3]];
+    for (const [x, y, rr] of curls) { circ(c, x, y, rr); c.lineWidth = lw; c.strokeStyle = OUT; c.stroke(); }
+    for (const [x, y, rr] of curls) { circ(c, x, y, rr - lw / 2); c.fill(); }
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9;
+    for (const [x, y, rr] of curls.slice(1, 6)) { c.beginPath(); c.arc(x, y, rr * 0.55, -2.4, -0.9); c.stroke(); }
   } else if (look === 'masato') {
     // neat black hair with volume on top, over the ears, the ends flicking out
     c.beginPath();
@@ -2882,6 +3006,12 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.8;
     c.beginPath(); c.moveTo(-0.45, -0.95); c.quadraticCurveTo(-0.2, -0.72, -0.02, -0.86); c.stroke();
     c.beginPath(); c.moveTo(0.22, -0.98); c.quadraticCurveTo(0.46, -0.76, 0.64, -0.9); c.stroke();
+  } else if (look === 'lapis') {
+    // curly bangs swept to one side
+    c.fillStyle = ch.hair;
+    for (const [x, y, rr] of [[-0.6, -0.72, 0.36], [-0.22, -0.86, 0.34], [0.16, -0.9, 0.3], [0.5, -0.86, 0.26], [0.8, -0.72, 0.22], [-0.85, -0.3, 0.3]]) { circ(c, x, y, rr); c.fill(); }
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9;
+    for (const [x, y] of [[-0.22, -0.86], [0.16, -0.9], [0.5, -0.86]]) { c.beginPath(); c.arc(x, y + 0.04, 0.16, 0.3, 2.4); c.stroke(); }
   } else if (look === 'masato') {
     // a center part; the bangs sweep out to both sides and flick up at the ends
     c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.2);
@@ -2995,6 +3125,7 @@ function drawFace(c, ch, look, lw, t, lx, ly, mood, hot, cold) {
   if (look === 'longhair') { drawLongFace(c, lw, t, lx, ly, mood); return; }
   if (look === 'curtain') { drawKitaFace(c, lw, t, lx, ly, mood, hot); return; }
   if (look === 'masato') { drawMasatoFace(c, lw, t, lx, ly, mood); return; }
+  if (look === 'lapis') { drawLapisFace(c, lw, t, lx, ly, mood); return; }
   // cheeks
   if (look === 'bob' || look === 'ghost' || look === 'sumo') {
     c.fillStyle = look === 'sumo' ? 'rgba(255,120,120,.45)' : 'rgba(255,140,170,.5)';
@@ -3181,6 +3312,49 @@ function drawKitaFace(c, lw, t, lx, ly, mood, hot) {
     c.beginPath(); c.moveTo(mx - 0.08, my + 0.07); c.quadraticCurveTo(mx, my + 0.1, mx + 0.08, my + 0.07); c.stroke();
     c.beginPath(); c.arc(mx - 0.2, my - 0.02, 0.03, -0.6, 1.4); c.stroke();
     c.beginPath(); c.arc(mx + 0.21, my - 0.03, 0.03, 1.7, 3.8); c.stroke();
+  }
+}
+// ラピス: round cheeks, cheerful crescent eyes, pink lips
+function drawLapisFace(c, lw, t, lx, ly, mood) {
+  const eyes = [[0.18, -0.02, 0.9], [0.62, -0.02, 1]];
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.fillStyle = 'rgba(255,120,130,.42)'; ell(c, 0.76, 0.3, 0.2, 0.13); c.fill(); ell(c, 0.06, 0.34, 0.2, 0.13); c.fill();
+  for (const [ex, ey, sz] of eyes) {
+    if (mood === 'dizzy') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 0.9; c.beginPath();
+      for (let k = 0; k < 18; k++) { const a = k * 0.7 + t * 9, rr = 0.02 + k * 0.008; c.lineTo(ex + Math.cos(a) * rr, ey + Math.sin(a) * rr); }
+      c.stroke(); continue;
+    }
+    if (mood === 'up' || mood === 'yell' || mood === 'sad' || mood === 'cold') {
+      ell(c, ex, ey, 0.14 * sz, 0.17 * sz); fillOut(c, '#FFFFFF', lw * 0.7);
+      c.fillStyle = '#3A2418'; circ(c, ex + lx * 0.05, ey + ly * 0.04, 0.085 * sz); c.fill();
+      c.fillStyle = '#FFFFFF'; circ(c, ex + lx * 0.05 - 0.03, ey - 0.04, 0.025); c.fill();
+      continue;
+    }
+    // happy crescents with lashes
+    c.strokeStyle = OUT; c.lineWidth = lw * 1.4;
+    c.beginPath(); c.arc(ex, ey + 0.07, 0.14 * sz, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+    c.lineWidth = lw * 0.8;
+    c.beginPath(); c.moveTo(ex + 0.12 * sz, ey - 0.02); c.lineTo(ex + 0.19 * sz, ey - 0.07); c.stroke();
+  }
+  // gentle brows
+  c.strokeStyle = 'rgba(90,58,40,.9)'; c.lineWidth = lw * 1.1;
+  for (const [ex, ey] of eyes) { c.beginPath(); c.moveTo(ex - 0.13, ey - 0.3); c.quadraticCurveTo(ex, ey - 0.37, ex + 0.14, ey - 0.3); c.stroke(); }
+  // nose
+  c.lineWidth = lw * 0.8; c.strokeStyle = OUT;
+  c.beginPath(); c.moveTo(0.46, 0.12); c.quadraticCurveTo(0.56, 0.24, 0.44, 0.27); c.stroke();
+  const mx = 0.47, my = 0.5;
+  if (mood === 'yell' || mood === 'up' || mood === 'dizzy') {
+    ell(c, mx, my + 0.02, 0.12, mood === 'yell' ? 0.13 : 0.09); fillOut(c, '#A8324A', lw * 0.8);
+  } else if (mood === 'sad' || mood === 'cold') {
+    c.lineWidth = lw * 1.2; c.strokeStyle = '#C24A62';
+    c.beginPath(); c.moveTo(mx - 0.13, my + 0.06); c.quadraticCurveTo(mx, my - 0.03, mx + 0.14, my + 0.05); c.stroke();
+  } else {
+    // a big smile with pink lips
+    c.beginPath(); c.moveTo(mx - 0.2, my - 0.04); c.quadraticCurveTo(mx, my + (mood === 'joy' ? 0.28 : 0.2), mx + 0.22, my - 0.05); c.closePath();
+    c.fillStyle = '#8A2438'; c.fill();
+    c.save(); c.clip(); c.fillStyle = '#FFFFFF'; c.fillRect(mx - 0.25, my - 0.08, 0.5, 0.07); c.restore();
+    c.strokeStyle = '#E0607A'; c.lineWidth = lw * 1.3; c.stroke();
   }
 }
 // まさと: calm, clear eyes with a glint, straight brows and an easy smile (イケメン)
@@ -3805,6 +3979,10 @@ const Sound = (() => {
     wind() { noise({ ft: 'bandpass', f: 300, f2: 1100, d: 1.6, v: 0.3, q: 0.5, a: 0.2 }); },
     dazzle() { for (let i = 0; i < 6; i++) tone({ f: 1400 + i * 380, d: 0.18, v: 0.06, at: i * 0.035, type: 'triangle' }); tone({ f: 300, f2: 2400, d: 0.35, v: 0.06, type: 'sine' }); },
     stretch() { tone({ f: 260, f2: 1300, d: 0.7, v: 0.12, type: 'sine', vib: 6, vibD: 25 }); tone({ f: 520, f2: 2000, d: 0.5, v: 0.05, type: 'triangle', at: 0.15 }); },
+    peel() { for (let i = 0; i < 6; i++) noise({ ft: 'highpass', f: 2600 + i * 300, d: 0.05, v: 0.12, at: i * 0.17 }); },
+    jackpot() { for (const [f, at] of [[784, 0], [988, 0.1], [1175, 0.2], [1568, 0.32], [1976, 0.46]]) tone({ f, d: 0.3, v: 0.11, at, type: 'square' }); for (let i = 0; i < 8; i++) tone({ f: 2400 + (i % 3) * 400, d: 0.08, v: 0.05, at: 0.5 + i * 0.06, type: 'triangle' }); },
+    coin() { if (!rate('coin', 0.06)) return; tone({ f: 1976, d: 0.08, v: 0.08, type: 'square' }); tone({ f: 2637, d: 0.18, v: 0.07, type: 'square', at: 0.06 }); },
+    plate() { noise({ ft: 'highpass', f: 3500, d: 0.25, v: 0.25 }); for (let i = 0; i < 4; i++) tone({ f: 2200 + i * 520, d: 0.06, v: 0.05, at: i * 0.03, type: 'triangle' }); },
     event() { for (const [f, at] of [[523, 0], [659, 0.08], [784, 0.16], [1047, 0.26]]) tone({ f, d: 0.2, v: 0.09, at, type: 'square' }); noise({ ft: 'bandpass', f: 1800, d: 0.4, v: 0.1, at: 0.1 }); },
     present() { noise({ ft: 'highpass', f: 3000, d: 0.04, v: 0.25 }); tone({ f: 880, d: 0.08, v: 0.1, type: 'square', at: 0.02 }); tone({ f: 330, f2: 1650, d: 0.6, v: 0.07, type: 'sine', at: 0.1 }); },
     meteor() { if (!rate('meteor', 0.07)) return; noise({ ft: 'lowpass', f: 1800, f2: 300, d: 0.3, v: 0.28 }); tone({ f: 1800, f2: 400, d: 0.18, v: 0.05, type: 'triangle' }); },
@@ -4370,11 +4548,11 @@ function encodeSnap(G, seq) {
     t: 's', q: seq, T: r3(G.t), ph: PH[G.phase], pt: r2(G.phaseT), ck: r2(G.clock), ot: G.ot ? 1 : 0, sc: G.score, ep: G.epoch,
     b: [r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot), b.held ? 1 : 0, Math.max(0, MODES.indexOf(b.mode)), r2(b.modeT), b.modeTeam, b.last, b.r, b.ghostP, r2(b.heatT || 0)],
     f: G.fakes.map(f => [f.id, r0(f.x), r0(f.y), r0(f.vx), r0(f.vy)]),
-    mt: G.meteors.map(m => [m.id, r0(m.x), r0(m.y), r0(m.vx), r0(m.vy), m.team]),
+    mt: G.meteors.map(m => [m.id, r0(m.x), r0(m.y), r0(m.vx), r0(m.vy), m.team, m.coin ? 1 : 0]),
     xb: G.extra.map(b => [b.id, r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot)]),
     ic: r2(G.iceT), gv: r2(G.lowGravT),
     p: G.players.map(p => [r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), p.ground ? 1 : 0, p.kick.t >= 0 ? r3(p.kick.t) : -1, p.kick.seq,
-      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp), r2(p.hot), r2(p.drunk), r2(p.present)]),
+      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp), r2(p.hot), r2(p.drunk), r2(p.present), r2(p.giftT), p.giftAmt, r2(p.giftShow)]),
     it: G.items.map(i => [i.id, ITEM_KEYS.indexOf(i.k), r0(i.x), r0(i.y), r2(i.t)]),
     gh: G.goalH, gx: G.goalFx.map(f => [f.k, r2(f.t)]), bb: r2(G.bigBallT), fl: r2(G.floatT), wd: [G.wind.team, r2(G.wind.t)],
     lg: G.lastGoal ? [G.lastGoal.team, G.lastGoal.p, G.lastGoal.own ? 1 : 0] : null,
@@ -4404,7 +4582,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
   // players: effects for everyone; positions only for the ones this phone does not move
   s.p.forEach((a, i) => {
     const p = G.players[i]; if (!p) return;
-    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0; p.muscle = a[22] || 0; p.hp = a[23] == null ? 1 : a[23]; p.hot = a[24] || 0; p.drunk = a[25] || 0; p.present = a[26] || 0;
+    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0; p.muscle = a[22] || 0; p.hp = a[23] == null ? 1 : a[23]; p.hot = a[24] || 0; p.drunk = a[25] || 0; p.present = a[26] || 0; p.giftT = a[27] || 0; p.giftAmt = a[28] || 0; p.giftShow = a[29] || 0;
     if (p.i !== myIdx) {
       p.scale = a[15]; p.r = HEAD_R * p.scale; p.landT = a[17]; p.legK = a[21] || targetLeg(p);
       if (a[5] >= 0) { if (p.kick.seq !== a[6] || p.kick.t < 0) { p.kick.seq = a[6]; p.kick.t = a[5]; } } else p.kick.t = -1;
@@ -4418,7 +4596,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
     if (e.k === 'knock' || e.k === 'bump') { const p = G.players[e.p]; if (p && p.owned && e.ep === NetSync.epoch) { p.vx = e.vx; p.vy = e.vy; p.ground = false; } }
     // own jumps, swings and supers were already shown here
     const ownP = i => G.players[i] && G.players[i].owned;
-    if (((e.k === 'super' || e.k === 'swing' || e.k === 'flex' || e.k === 'boil' || e.k === 'cheers' || e.k === 'present') && ownP(e.p)) || (e.k === 'drunk' && ownP(e.by))) continue;
+    if (((e.k === 'super' || e.k === 'swing' || e.k === 'flex' || e.k === 'boil' || e.k === 'cheers' || e.k === 'present' || e.k === 'gift') && ownP(e.p)) || (e.k === 'drunk' && ownP(e.by))) continue;
     onEvent(e, true);
   }
   // a reset the events did not carry (or the first picture after joining mid-match)
@@ -4454,7 +4632,7 @@ function guestExtrapolate(G, dtFrame) {
   // the fakes
   G.fakes = s.f.map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], r: G.ball.r, rot: 0, av: 0 }));
   G.extra = (s.xb || []).map(a => Object.assign(newBall(a[1] + a[3] * age, a[2] + a[4] * age), { id: a[0], vx: a[3], vy: a[4], rot: a[5], r: G.ball.r, held: false, extra: true }));
-  G.meteors = (s.mt || []).map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], team: a[5] })).filter(m => m.y < GROUND);
+  G.meteors = (s.mt || []).map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], team: a[5], coin: a[6] })).filter(m => m.y < GROUND);
   // the ball: run it forward from the picture, bouncing off the walls and off this phone's own player
   const sb = s.b, b = G.ball;
   b.held = !!sb[5]; b.mode = MODES[sb[6]] || ''; b.modeT = Math.max(0, sb[7] - age); b.modeTeam = sb[8]; b.last = sb[9]; b.ghostP = sb[11] == null ? -1 : sb[11]; b.heatT = sb[12] || 0;
@@ -4745,6 +4923,15 @@ function onEvent(e, remote) {
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
     case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'gift': if (P) { S('peel'); } break;
+    case 'giftWin': if (P) {
+      const amt = e.amt || 0, big = amt >= 10000;
+      FX.banner = { text: (big ? '💰 ' : '🎁 ') + '¥' + amt.toLocaleString('ja-JP') + (big ? ' 大当たり！' : amt >= 5000 ? ' あたり！' : amt >= 3000 ? ' まあまあ' : ' しょぼ…'), sub: M.label[P.i] || P.name, t: 0, max: 1.6, col: big ? '#B8860B' : TEAM_COL[P.team].deep, dir: P.team ? -1 : 1, size: big ? 60 : 48 };
+      if (amt >= 5000) puff(P.x, P.y - P.r - 100, big ? 40 : 18, '#FFD740', 420, 120, 8, 1.2, 'confetti');
+      if (big) { FX.flash = 0.5; FX.flashCol = '#FFF3B0'; FX.shake = Math.max(FX.shake, 0.3); }
+      S(big ? 'jackpot' : amt >= 5000 ? 'item' : 'click');
+    } break;
+    case 'coin': puff(e.x, e.y, 6, '#FFD23A', 260, 60, 6, 0.4, 'star'); S('coin'); break;
     case 'event': { const evd = EVENTS[e.ek]; if (evd) { FX.banner = { text: evd.text, sub: 'イベント発生！', t: 0, max: 1.8, col: '#7A3FC2', dir: 1, size: 54 }; S('event'); } break; }
     case 'present': if (P) { floatText(P.x, P.y - P.r - 54, 'では、始めます。', '#CFE3FF', 32, 1.2); FX.flash = 0.35; FX.flashCol = '#DDEBFF'; S('present'); } break;
     case 'meteor': puff(e.x, e.y, 9, '#DFF4FF', 320, 80, 7, 0.45, 'star'); ring(e.x, e.y, 'rgba(160,220,255,.9)', 10, 70, 0.3, 6); S('meteor'); break;
@@ -4754,7 +4941,7 @@ function onEvent(e, remote) {
     case 'sizzle': ring(e.x, e.y, '#FF6A2A', 12, 70, 0.3, 7); puff(e.x, e.y, 8, '#FFB347', 300, 40, 7, 0.4, 'flame'); S('sizzle'); break;
     case 'flex': if (P) { floatText(P.x, P.y - P.r - 50, 'ムキッ！', '#FFE1B0', 40, 1.0); ring(P.x, P.y, '#FFB07A', 30, 160, 0.45, 9); S('flex'); } break;
     case 'punch': floatText(e.x, e.y - 40, 'ドン！', '#FFFFFF', 38, 0.7); puff(e.x, e.y, 10, '#FFE9A0', 360, 0, 7, 0.35, 'star'); ring(e.x, e.y, '#FFB07A', 14, 80, 0.3, 7); FX.shake = Math.max(FX.shake, 0.22); S('punch'); break;
-    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : e.how === 'burn' ? 'あちっ！' : e.how === 'meteor' ? 'ドカッ' : 'ゴツッ', e.how === 'burn' ? '#FFC2A8' : '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); } break;
+    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : e.how === 'burn' ? 'あちっ！' : e.how === 'meteor' ? 'ドカッ' : 'ゴツッ', e.how === 'burn' ? '#FFC2A8' : '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); if (CHARS[P.char].plates) { floatText(P.x - P.face * P.r, P.y - P.r * 1.4, 'ガシャーン', '#FFFFFF', 26, 0.7); puff(P.x - P.face * P.r * 1.2, P.y - P.r * 0.4, 10, '#F3F6FA', 300, 120, 6, 0.6, 'confetti'); S('plate'); } } break;
     case 'ko': if (P) { floatText(P.x, P.y - P.r - 60, 'ダウン！', '#FF8A8A', 42, 1.4); puff(P.x, P.y - P.r, 12, '#FFE14D', 300, 80, 9, 0.7, 'star'); FX.shake = Math.max(FX.shake, 0.3); S('ko'); } break;
     case 'slip': if (P) { floatText(e.x, e.y - 46, 'すりぬけ！', '#E6DDFF', 30, 0.9); puff(e.x, e.y, 10, '#D9CCFF', 220, 20, 7, 0.5); S('slip'); } break;
     case 'freeze': if (P) { puff(P.x, P.y, 14, '#DFF7FF', 300, 60, 8, 0.6, 'snow'); S('freeze'); } break;
@@ -5601,7 +5788,7 @@ setInterval(() => { if (M.G && M.mode !== 'demo') renderNetbar(); else $('#netba
 
 // ---------- a newer version on the site: take it by itself ----------
 // phones keep an open page (and the site's page) for a long time, so look now and then and reload on the title screen
-var BUILD_ID = '3d9f0ac9f2';
+var BUILD_ID = '87477e757c';
 var Updater = {
   busy: false, pending: false,
   safe() {

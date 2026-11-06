@@ -41,7 +41,9 @@ const GAUGE_CONCEDE = 0.18;
 const HIT_STUN = 2.6;       // knocked down this long when the health runs out
 const HOT_T = 6;           // まっかっかヘッド
 const DRUNK_T = 5;
-const PRESENT_T = 4.6;     // 冷徹プレゼン: the slides are up this long (the meteors fall in the middle of it)         // のめのめ攻撃: tipsy this long
+const PRESENT_T = 4.6;
+const GIFT_T = 1.4;        // the gift card: peeling it open takes this long, then the amount shows
+const GIFT_AMOUNTS = [1000, 3000, 5000, 10000];     // 冷徹プレゼン: the slides are up this long (the meteors fall in the middle of it)         // のめのめ攻撃: tipsy this long
 const MUSCLE_T = 7;        // ムキムキうで lasts this long (the first part is the flex)
 const FIST_R = 0.4;        // the muscle fist, in head radii// ... for the team that let a goal in
 
@@ -85,6 +87,8 @@ const CHARS = [
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
   { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'drink', mass: 1, beer: true,
     skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
+  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true,
+    skin: '#F5D0B5', hair: '#5A3A28', hair2: '#8A5E42', look: 'lapis', blurb: 'なぜか帰宅したはずなのに、閉店後に控え室に必ず出現する。中学生の時にタバコを吸ってるのがバレたんだとか。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
 
@@ -99,6 +103,7 @@ const SUPERS = {
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  gift:    { name: 'Amazonギフトカード開封', icon: '🎁', armed: false, desc: 'ペリペリ開封！ 1000円・3000円・5000円・10000円のどれかが出て、高いほど強い必殺技になる。10000円は全部のせ' },
   slide:   { name: '冷徹プレゼン',     icon: '📊', armed: false, desc: 'パワポを発動！ 冷徹な顔でスライドを見せつけると、相手チームの上に流星群がふりそそぐ' },
   drink:   { name: 'のめのめ攻撃',     icon: '🍺', armed: false, desc: '相手チーム全員にビールをのませる！ のまされた相手は5秒間よっぱらってフラフラ' },
   hot:     { name: 'まっかっかヘッド', icon: '🥵', armed: false, desc: '顔が真っ赤に！ 6秒間、頭がアツアツになって、当たったボールはロケットみたいに飛んでいく。さわった相手は「あちっ！」' },

@@ -47,7 +47,7 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0, present: 0,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0, present: 0, giftT: 0, giftAmt: 0, giftShow: 0, coinT: 0,
     hp: 1, hurtT: -9, burnT: -9, meteorT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
@@ -192,6 +192,7 @@ function step(G, inputs) {
   separatePlayers(G);
   hitPlayers(G);
   stepMeteors(G, DT);
+  stepGifts(G, DT);
   if (!G.ball.held) {
     for (let s = 0; s < SUB; s++) ballSub(G, DT / SUB, s);
     stepFakes(G, DT);
@@ -259,6 +260,8 @@ function tickTimers(G, p, dt) {
   if (p.hot > 0) p.hot = Math.max(0, p.hot - dt);
   if (p.drunk > 0) p.drunk = Math.max(0, p.drunk - dt);
   if (p.present > 0) p.present = Math.max(0, p.present - dt);
+  if (p.giftShow > 0) p.giftShow = Math.max(0, p.giftShow - dt);
+  if (p.coinT > 0) p.coinT = Math.max(0, p.coinT - dt);
   // health: full again after a knock-down, and slowly back when left alone for a while
   if (p.hp < 1) {
     if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
@@ -401,6 +404,12 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'gift') {
+    // the amount is decided now (and shown when the card is open)
+    const r = G.rng();
+    p.giftAmt = r < 0.3 ? 1000 : r < 0.6 ? 3000 : r < 0.85 ? 5000 : 10000;
+    p.giftT = GIFT_T;
+    ev(G, 'gift', { p: p.i, amt: p.giftAmt });
   } else if (kind === 'slide') {
     p.present = PRESENT_T; p.meteorAcc = 0;
     ev(G, 'present', { p: p.i });
@@ -811,6 +820,7 @@ function stepMeteors(G, dt) {
     if (!boom) for (const q of G.players) if (q.team !== m.team && touchesPlayer(q, m.x, m.y, 16)) { boom = true; break; }
     if (!boom) continue;
     const by = G.players[m.by] || null;
+    if (m.coin) ev(G, 'coin', { x: m.x | 0, y: Math.min(m.y, GROUND - 8) | 0 });
     for (const q of G.players) {
       if (q.team === m.team || q.stn > 0 || G.t - q.meteorT < 0.45) continue;
       if (touchesPlayer(q, m.x, m.y, 44)) { q.meteorT = G.t; hurt(G, by, q, 'meteor', m.x, m.y); }
@@ -818,6 +828,46 @@ function stepMeteors(G, dt) {
     ev(G, 'meteor', { x: m.x | 0, y: Math.min(m.y, GROUND - 8) | 0 });
     G.meteors.splice(i, 1);
   }
+}
+
+// ---------- ラピス: the gift card ----------
+function stepGifts(G, dt) {
+  for (const p of G.players) {
+    if (p.giftT > 0) {
+      p.giftT -= dt;
+      if (p.giftT <= 0) { p.giftT = 0; applyGift(G, p, p.giftAmt); }
+    }
+    // ¥10,000: money rains on the other side
+    if (p.coinT > 0 && G.phase === 'play') {
+      p.coinAcc = (p.coinAcc || 0) + dt;
+      while (p.coinAcc >= 0.14) {
+        p.coinAcc -= 0.14;
+        const foes = G.players.filter(q => q.team !== p.team);
+        const half = p.team === 0 ? W / 2 + G.rng() * W / 2 : G.rng() * W / 2;
+        const aim = foes.length && G.rng() < 0.7 ? foes[Math.floor(G.rng() * foes.length)].x + (G.rng() - 0.5) * 300 : half;
+        const tx = clamp(aim, 30, W - 30), vy = 900 + G.rng() * 200, vx = (G.rng() - 0.5) * 240, tt = (GROUND + 40) / vy;
+        G.meteors.push({ id: ++G.meteorSeq, x: tx - vx * tt, y: -40, vx, vy, team: p.team, by: p.i, coin: 1 });
+      }
+    }
+  }
+}
+function applyGift(G, p, amt) {
+  const mates = G.players.filter(q => q.team === p.team), foes = G.players.filter(q => q.team !== p.team);
+  const oppSide = 1 - p.team;
+  p.giftShow = 1.6;
+  if (amt >= 1000) { p.dash = Math.max(p.dash, 5); p.hp = Math.min(1, p.hp + 0.3); }
+  if (amt >= 3000) { p.dash = Math.max(p.dash, 7); p.pow = Math.max(p.pow, 7); p.hp = 1; }
+  if (amt >= 5000) {
+    for (const q of mates) { q.dash = Math.max(q.dash, 7); q.pow = Math.max(q.pow, 7); }
+    G.goalFx[oppSide] = { k: 'big', t: 8 }; setGoalH(G, oppSide, GOAL_H_BIG);
+  }
+  if (amt >= 10000) {
+    for (const q of mates) { q.dash = Math.max(q.dash, 8); q.pow = Math.max(q.pow, 8); q.hp = 1; }
+    G.goalFx[oppSide] = { k: 'big', t: 10 };
+    for (const q of foes) { q.stn = Math.max(q.stn, 2); q.armed = 0; ev(G, 'bolt', { p: q.i }); }
+    p.coinT = 2.6; p.coinAcc = 0;
+  }
+  ev(G, 'giftWin', { p: p.i, amt });
 }
 
 // ---------- the イベント mode: something happens every so often ----------

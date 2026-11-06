@@ -310,6 +310,7 @@ function drawPlayer(c, p, G, t, opt) {
   if (ch.limbs) drawLimbs(c, p, ch, G, t, fx, fy, kicking);
   if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'back');
   if (ch.beer) drawBeerArm(c, p, ch, G, t);
+  if (ch.plates) drawPlates(c, p, ch, G, t);
   if (!kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
   c.save();
   c.translate(p.x, p.y);
@@ -365,6 +366,7 @@ function drawPlayer(c, p, G, t, opt) {
   c.restore();
   if (kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
   if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'front');
+  if (p.giftT > 0 || p.giftShow > 0) drawGift(c, p, t);
   // frozen: an ice block over everything
   if (p.frz > 0) {
     const a = Math.min(1, p.frz * 3);
@@ -397,7 +399,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928', slide: '#7FB2FF' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B', hot: '#FF4A3A', drink: '#F0A928', slide: '#7FB2FF', gift: '#FFC93A' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -477,6 +479,14 @@ function drawFloaties(c, G, t) {
 }
 function drawMeteors(c, G, t) {
   for (const m of G.meteors) {
+    if (m.coin) {
+      // a gold coin, spinning on its way down
+      const w = Math.abs(Math.cos(t * 9 + m.id)) * 18 + 4;
+      c.fillStyle = 'rgba(255,230,120,.35)'; circ(c, m.x, m.y, 26); c.fill();
+      ell(c, m.x, m.y, w, 20); fillOut(c, '#FFC93A', 2.5);
+      if (w > 10) { c.fillStyle = '#B07A10'; c.font = `900 22px ${FONT_UI}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('¥', m.x, m.y + 1); }
+      continue;
+    }
     const sp = Math.hypot(m.vx, m.vy) || 1, ux = m.vx / sp, uy = m.vy / sp, L = 150;
     const g = c.createLinearGradient(m.x, m.y, m.x - ux * L, m.y - uy * L);
     g.addColorStop(0, 'rgba(230,250,255,.95)'); g.addColorStop(0.4, 'rgba(120,200,255,.55)'); g.addColorStop(1, 'rgba(90,140,255,0)');
@@ -485,6 +495,56 @@ function drawMeteors(c, G, t) {
     c.fillStyle = 'rgba(160,220,255,.45)'; circ(c, m.x, m.y, 20); c.fill();
     starShape(c, m.x, m.y, 15, 6.5, t * 8 + m.id); fillOut(c, '#FFFFFF', 2.5);
   }
+}
+
+// ラピス: a tall stack of plates held up on one hand at the back, wobbling as she goes
+function drawPlates(c, p, ch, G, t) {
+  const r = p.r, f = p.face, k = Math.sqrt(p.scale);
+  const run = clamp(Math.abs(p.vx) / 300, 0, 1), wob = Math.sin(t * 11 + p.i) * 0.06 * run + clamp(-p.vx * f / 3000, -0.12, 0.12);
+  const S = [p.x - f * r * 0.55, p.y + r * 0.62], H = [p.x - f * r * 1.22, p.y - r * 0.05];
+  const w = 9 * k;
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = OUT; c.lineWidth = w + 5; c.beginPath(); c.moveTo(S[0], S[1]); c.lineTo(H[0] + f * 4, H[1] + r * 0.45); c.lineTo(H[0], H[1]); c.stroke();
+  c.strokeStyle = '#F2EFE6'; c.lineWidth = w; c.beginPath(); c.moveTo(S[0], S[1]); c.lineTo(H[0] + f * 4, H[1] + r * 0.45); c.lineTo(H[0], H[1]); c.stroke();
+  // the stack
+  c.save(); c.translate(H[0], H[1] - 4); c.rotate(wob * f);
+  const n = 7, pw = r * 0.95, ph = r * 0.13;
+  for (let i = 0; i < n; i++) {
+    const y = -i * ph * 0.95 - ph * 0.5, sway = Math.sin(t * 7 + i * 0.7) * run * i * 0.6;
+    ell(c, sway, y, pw / 2, ph * 0.62); fillOut(c, i % 2 ? '#FFFFFF' : '#F3F6FA', 2.2);
+    c.strokeStyle = 'rgba(80,140,200,.55)'; c.lineWidth = 1.6; c.beginPath(); c.ellipse(sway, y - 1, pw * 0.36, ph * 0.3, 0, Math.PI * 1.05, Math.PI * 1.95); c.stroke();
+  }
+  c.restore();
+  circ(c, H[0], H[1], w * 0.75); fillOut(c, ch.skin, 2.4);
+}
+// the gift card above ラピス: peeled open, then the amount
+function drawGift(c, p, t) {
+  const x = p.x, y = p.y - p.r - 120;
+  c.save(); c.translate(x, y);
+  if (p.giftT > 0) {
+    const u = 1 - p.giftT / GIFT_T, shake = Math.sin(t * 40) * 3 * (1 - u);
+    c.translate(shake, 0);
+    // the card
+    const w = 150, h = 92;
+    rrect(c, -w / 2, -h / 2, w, h, 12); fillOut(c, '#FFF6E0', 3);
+    c.fillStyle = '#E5322D'; c.fillRect(-w / 2 + 18, -h / 2, 14, h); c.fillRect(-w / 2, -6, w, 12);
+    c.fillStyle = '#1B2030'; c.font = `900 18px ${FONT_UI}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('GIFT CARD', 14, -24);
+    // the silver scratch strip being peeled away
+    const peel = clamp(u * 1.3, 0, 1);
+    c.fillStyle = '#C8CDD6'; c.fillRect(-w / 2 + 40 + (w - 52) * peel, 12, (w - 52) * (1 - peel), 24);
+    c.fillStyle = '#1B2030'; c.font = `900 18px ${FONT_UI}`; c.fillText('¥ ?????', 18, 24);
+    if (u > 0.2) { c.fillStyle = `rgba(255,255,255,${0.6 * Math.sin(t * 20) ** 2})`; starShape(c, -w / 2 + 40 + (w - 52) * peel, 20, 12, 4, t * 6); c.fill(); }
+    outlined(c, 'ペリペリ…', 0, -h / 2 - 22, 24, '#FFFFFF', 5);
+  } else {
+    const amt = p.giftAmt, big = amt >= 10000, k = Math.min(1, (1.6 - p.giftShow) / 0.15);
+    c.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
+    const label = '¥' + amt.toLocaleString('ja-JP');
+    const col = amt >= 10000 ? '#FFD23A' : amt >= 5000 ? '#FFB347' : amt >= 3000 ? '#BFE6FF' : '#E6E6E6';
+    if (big) { const g = c.createRadialGradient(0, 0, 10, 0, 0, 130); g.addColorStop(0, 'rgba(255,230,120,.7)'); g.addColorStop(1, 'rgba(255,230,120,0)'); c.fillStyle = g; circ(c, 0, 0, 130); c.fill(); }
+    outlined(c, label, 0, 0, big ? 64 : 48, col, 9);
+    outlined(c, amt >= 10000 ? '大当たり！！' : amt >= 5000 ? 'あたり！' : amt >= 3000 ? 'まあまあ' : 'しょぼ…', 0, big ? 46 : 38, 24, '#FFFFFF', 5);
+  }
+  c.restore();
 }
 
 // a glass beer mug, in units where the mug is about s tall (drawn around its middle)
@@ -709,6 +769,14 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     for (const [x0, y0, x1, y1, x2, y2] of [[-1.16, -0.05, -0.98, 0.22, -1.1, 0.5], [-0.92, -0.72, -0.66, -0.6, -0.74, -0.3], [-0.36, -1.08, -0.1, -0.94, 0.12, -1.06], [0.62, -1.0, 0.86, -0.86, 0.98, -0.6]]) {
       c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x1, y1, x2, y2); c.stroke();
     }
+  } else if (look === 'lapis') {
+    // a soft, permed bob in brown, curls all round
+    c.fillStyle = ch.hair;
+    const curls = [[-1.0, 0.35, 0.36], [-1.08, -0.05, 0.4], [-0.95, -0.5, 0.42], [-0.6, -0.88, 0.42], [-0.15, -1.06, 0.42], [0.32, -1.04, 0.4], [0.72, -0.82, 0.36], [0.96, -0.45, 0.3], [-0.78, 0.62, 0.3]];
+    for (const [x, y, rr] of curls) { circ(c, x, y, rr); c.lineWidth = lw; c.strokeStyle = OUT; c.stroke(); }
+    for (const [x, y, rr] of curls) { circ(c, x, y, rr - lw / 2); c.fill(); }
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9;
+    for (const [x, y, rr] of curls.slice(1, 6)) { c.beginPath(); c.arc(x, y, rr * 0.55, -2.4, -0.9); c.stroke(); }
   } else if (look === 'masato') {
     // neat black hair with volume on top, over the ears, the ends flicking out
     c.beginPath();
@@ -824,6 +892,12 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.8;
     c.beginPath(); c.moveTo(-0.45, -0.95); c.quadraticCurveTo(-0.2, -0.72, -0.02, -0.86); c.stroke();
     c.beginPath(); c.moveTo(0.22, -0.98); c.quadraticCurveTo(0.46, -0.76, 0.64, -0.9); c.stroke();
+  } else if (look === 'lapis') {
+    // curly bangs swept to one side
+    c.fillStyle = ch.hair;
+    for (const [x, y, rr] of [[-0.6, -0.72, 0.36], [-0.22, -0.86, 0.34], [0.16, -0.9, 0.3], [0.5, -0.86, 0.26], [0.8, -0.72, 0.22], [-0.85, -0.3, 0.3]]) { circ(c, x, y, rr); c.fill(); }
+    c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9;
+    for (const [x, y] of [[-0.22, -0.86], [0.16, -0.9], [0.5, -0.86]]) { c.beginPath(); c.arc(x, y + 0.04, 0.16, 0.3, 2.4); c.stroke(); }
   } else if (look === 'masato') {
     // a center part; the bangs sweep out to both sides and flick up at the ends
     c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.2);
@@ -937,6 +1011,7 @@ function drawFace(c, ch, look, lw, t, lx, ly, mood, hot, cold) {
   if (look === 'longhair') { drawLongFace(c, lw, t, lx, ly, mood); return; }
   if (look === 'curtain') { drawKitaFace(c, lw, t, lx, ly, mood, hot); return; }
   if (look === 'masato') { drawMasatoFace(c, lw, t, lx, ly, mood); return; }
+  if (look === 'lapis') { drawLapisFace(c, lw, t, lx, ly, mood); return; }
   // cheeks
   if (look === 'bob' || look === 'ghost' || look === 'sumo') {
     c.fillStyle = look === 'sumo' ? 'rgba(255,120,120,.45)' : 'rgba(255,140,170,.5)';
@@ -1123,6 +1198,49 @@ function drawKitaFace(c, lw, t, lx, ly, mood, hot) {
     c.beginPath(); c.moveTo(mx - 0.08, my + 0.07); c.quadraticCurveTo(mx, my + 0.1, mx + 0.08, my + 0.07); c.stroke();
     c.beginPath(); c.arc(mx - 0.2, my - 0.02, 0.03, -0.6, 1.4); c.stroke();
     c.beginPath(); c.arc(mx + 0.21, my - 0.03, 0.03, 1.7, 3.8); c.stroke();
+  }
+}
+// ラピス: round cheeks, cheerful crescent eyes, pink lips
+function drawLapisFace(c, lw, t, lx, ly, mood) {
+  const eyes = [[0.18, -0.02, 0.9], [0.62, -0.02, 1]];
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.fillStyle = 'rgba(255,120,130,.42)'; ell(c, 0.76, 0.3, 0.2, 0.13); c.fill(); ell(c, 0.06, 0.34, 0.2, 0.13); c.fill();
+  for (const [ex, ey, sz] of eyes) {
+    if (mood === 'dizzy') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 0.9; c.beginPath();
+      for (let k = 0; k < 18; k++) { const a = k * 0.7 + t * 9, rr = 0.02 + k * 0.008; c.lineTo(ex + Math.cos(a) * rr, ey + Math.sin(a) * rr); }
+      c.stroke(); continue;
+    }
+    if (mood === 'up' || mood === 'yell' || mood === 'sad' || mood === 'cold') {
+      ell(c, ex, ey, 0.14 * sz, 0.17 * sz); fillOut(c, '#FFFFFF', lw * 0.7);
+      c.fillStyle = '#3A2418'; circ(c, ex + lx * 0.05, ey + ly * 0.04, 0.085 * sz); c.fill();
+      c.fillStyle = '#FFFFFF'; circ(c, ex + lx * 0.05 - 0.03, ey - 0.04, 0.025); c.fill();
+      continue;
+    }
+    // happy crescents with lashes
+    c.strokeStyle = OUT; c.lineWidth = lw * 1.4;
+    c.beginPath(); c.arc(ex, ey + 0.07, 0.14 * sz, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+    c.lineWidth = lw * 0.8;
+    c.beginPath(); c.moveTo(ex + 0.12 * sz, ey - 0.02); c.lineTo(ex + 0.19 * sz, ey - 0.07); c.stroke();
+  }
+  // gentle brows
+  c.strokeStyle = 'rgba(90,58,40,.9)'; c.lineWidth = lw * 1.1;
+  for (const [ex, ey] of eyes) { c.beginPath(); c.moveTo(ex - 0.13, ey - 0.3); c.quadraticCurveTo(ex, ey - 0.37, ex + 0.14, ey - 0.3); c.stroke(); }
+  // nose
+  c.lineWidth = lw * 0.8; c.strokeStyle = OUT;
+  c.beginPath(); c.moveTo(0.46, 0.12); c.quadraticCurveTo(0.56, 0.24, 0.44, 0.27); c.stroke();
+  const mx = 0.47, my = 0.5;
+  if (mood === 'yell' || mood === 'up' || mood === 'dizzy') {
+    ell(c, mx, my + 0.02, 0.12, mood === 'yell' ? 0.13 : 0.09); fillOut(c, '#A8324A', lw * 0.8);
+  } else if (mood === 'sad' || mood === 'cold') {
+    c.lineWidth = lw * 1.2; c.strokeStyle = '#C24A62';
+    c.beginPath(); c.moveTo(mx - 0.13, my + 0.06); c.quadraticCurveTo(mx, my - 0.03, mx + 0.14, my + 0.05); c.stroke();
+  } else {
+    // a big smile with pink lips
+    c.beginPath(); c.moveTo(mx - 0.2, my - 0.04); c.quadraticCurveTo(mx, my + (mood === 'joy' ? 0.28 : 0.2), mx + 0.22, my - 0.05); c.closePath();
+    c.fillStyle = '#8A2438'; c.fill();
+    c.save(); c.clip(); c.fillStyle = '#FFFFFF'; c.fillRect(mx - 0.25, my - 0.08, 0.5, 0.07); c.restore();
+    c.strokeStyle = '#E0607A'; c.lineWidth = lw * 1.3; c.stroke();
   }
 }
 // まさと: calm, clear eyes with a glint, straight brows and an easy smile (イケメン)
