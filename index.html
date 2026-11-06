@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1F5E3A">
-<meta name="gottsun-build" content="3b5638ce03">
+<meta name="gottsun-build" content="5b4c2e2995">
 <meta name="description" content="大きな頭でヘディング！4人まで遊べるあたまサッカー。CPU対戦、1台でみんなで、スマホを合言葉でつないで遊べます。">
 <title>ゴッツンサッカー</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
@@ -573,7 +573,7 @@ const CHARS = [
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
   { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'drink', mass: 1, beer: true,
     skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
-  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, leg: 1.4, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true,
+  { id: 'lapis', name: 'ラピス', type: '洗い場いけよ', size: 1.16, leg: 1.4, body: 4, spd: 3, jmp: 1, kck: 3, sup: 'gift', mass: 1.7, plates: true, shoe: '#1E1E24', faceK: [0.9, 1.15],
     skin: '#F5D0B5', hair: '#1C1A1F', hair2: '#45404D', look: 'lapis', blurb: 'なぜか帰宅したはずなのに、閉店後に控え室に必ず出現する。中学生の時にタバコを吸ってるのがバレたんだとか。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
@@ -2424,14 +2424,18 @@ function drawPlayer(c, p, G, t, opt) {
   if (ch.limbs) drawLimbs(c, p, ch, G, t, fx, fy, kicking);
   if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'back');
   if (ch.beer) drawBeerArm(c, p, ch, G, t);
-  if (ch.plates) drawPlates(c, p, ch, G, t);
-  if (!kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
+  if (ch.plates) {
+    drawPlates(c, p, ch, G, t);
+    if (G.phase === 'play' && Math.abs(p.vx) < 60 && p.ground && t - (p._sighT || 0) > 7) { p._sighT = t; floatText(p.x + p.face * p.r * 0.9, p.y - p.r * 0.2, 'はぁ…', '#E8EEF8', 22, 1.1); }
+  }
+  if (!kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale, ch.shoe);
   c.save();
   c.translate(p.x, p.y);
   // squash on landing, stretch while rising
   let sx = 1, sy = 1;
   if (p.landT > 0) { const k = p.landT / 0.18; sx = 1 + 0.12 * k; sy = 1 - 0.1 * k; }
   else if (!p.ground) { const k = clamp(-p.vy / 1200, -0.4, 1); sx = 1 - 0.05 * k; sy = 1 + 0.06 * k; }
+  if (ch.faceK) { sx *= ch.faceK[0]; sy *= ch.faceK[1]; }
   c.scale(r * p.face * sx, r * sy);
   const lw = 0.065 / Math.max(0.6, p.scale);
   // effects behind the head
@@ -2478,7 +2482,7 @@ function drawPlayer(c, p, G, t, opt) {
   const hf = 0.3 - (G.t - (p.hitAt == null ? -9 : p.hitAt));
   if (hf > 0) { c.fillStyle = `rgba(255,70,70,${Math.min(0.55, hf * 1.8)})`; circ(c, 0, 0, 1); c.fill(); }
   c.restore();
-  if (kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
+  if (kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale, ch.shoe);
   if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'front');
   if (p.giftT > 0 || p.giftShow > 0) drawGift(c, p, t);
   // frozen: an ice block over everything
@@ -2919,7 +2923,7 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     fillOut(c, ch.hair, lw);
     c.strokeStyle = ch.hair2; c.lineWidth = lw; c.beginPath(); c.moveTo(-0.55, -0.98); c.quadraticCurveTo(-0.98, -0.66, -1.0, -0.2); c.stroke();
     // the hair tie
-    ell(c, -0.98, -0.5, 0.11, 0.16, 0.5); fillOut(c, '#E5322D', lw * 0.8);
+    ell(c, -0.98, -0.5, 0.11, 0.16, 0.5); fillOut(c, '#8A5A32', lw * 0.8);
   } else if (look === 'masato') {
     // neat black hair with volume on top, over the ears, the ends flicking out
     c.beginPath();
@@ -3367,15 +3371,27 @@ function drawLapisFace(c, lw, t, lx, ly, mood) {
       c.fillStyle = '#FFFFFF'; circ(c, ex + lx * 0.05 - 0.03, ey - 0.04, 0.025); c.fill();
       continue;
     }
-    // happy crescents with lashes
-    c.strokeStyle = OUT; c.lineWidth = lw * 1.4;
-    c.beginPath(); c.arc(ex, ey + 0.07, 0.14 * sz, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
-    c.lineWidth = lw * 0.8;
-    c.beginPath(); c.moveTo(ex + 0.12 * sz, ey - 0.02); c.lineTo(ex + 0.19 * sz, ey - 0.07); c.stroke();
+    if (mood === 'joy') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 1.4;
+      c.beginPath(); c.arc(ex, ey + 0.07, 0.14 * sz, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); continue;
+    }
+    if (mood === 'blink') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 1.3; c.beginPath(); c.moveTo(ex - 0.15, ey + 0.04); c.lineTo(ex + 0.15, ey + 0.05); c.stroke(); continue;
+    }
+    // can't be bothered: heavy lids half down, the eyes looking off to one side
+    const rx = 0.15 * sz, ry = 0.11 * sz;
+    c.save(); ell(c, ex, ey + 0.03, rx, ry); c.fillStyle = '#FFFFFF'; c.fill(); c.clip();
+    c.fillStyle = '#2A1C16'; circ(c, ex + rx * 0.45, ey + 0.07, 0.08 * sz); c.fill();
+    // the lid
+    c.fillStyle = '#E9BFA2'; c.fillRect(ex - rx - 0.02, ey - ry - 0.02, rx * 2 + 0.04, ry + 0.035);
+    c.restore();
+    c.strokeStyle = OUT; c.lineWidth = lw * 1.5;
+    c.beginPath(); c.moveTo(ex - rx - 0.02, ey + 0.035); c.lineTo(ex + rx + 0.03, ey + 0.05); c.stroke();
+    c.lineWidth = lw * 0.6; c.beginPath(); c.ellipse(ex, ey + 0.03, rx, ry, 0, 0.15, Math.PI - 0.15); c.stroke();
   }
-  // thin, drawn-on brows, arched
+  // thin, drawn-on brows, flat and a little raised (bored)
   c.strokeStyle = 'rgba(30,26,30,.9)'; c.lineWidth = lw * 0.9;
-  for (const [ex, ey] of eyes) { c.beginPath(); c.moveTo(ex - 0.14, ey - 0.27); c.quadraticCurveTo(ex - 0.02, ey - 0.4, ex + 0.15, ey - 0.3); c.stroke(); }
+  for (const [ex, ey] of eyes) { c.beginPath(); c.moveTo(ex - 0.14, ey - 0.31); c.quadraticCurveTo(ex, ey - 0.35, ex + 0.15, ey - 0.32); c.stroke(); }
   // a few years on the face: crow's feet, lines under the eyes, smile lines, a soft double chin
   c.strokeStyle = 'rgba(150,95,75,.55)'; c.lineWidth = lw * 0.6;
   for (const [ex, ey, sz] of eyes) {
@@ -3405,7 +3421,7 @@ function drawLapisFace(c, lw, t, lx, ly, mood) {
     c.lineWidth = lw * 2.4; c.strokeStyle = lip; ell(c, mx, my + 0.04, 0.17, ry); c.stroke();
     c.lineWidth = lw * 0.7; c.strokeStyle = OUT; ell(c, mx, my + 0.04, 0.17 + lw * 1.25, ry + lw * 1.25); c.stroke();
   } else {
-    const down = mood === 'sad' || mood === 'cold' ? 0.05 : 0;
+    const down = mood === 'sad' || mood === 'cold' ? 0.05 : 0.03;      // a bored, slightly turned-down mouth
     // the upper lip, with a bow in the middle
     c.beginPath(); c.moveTo(mx - 0.23, my + down);
     c.quadraticCurveTo(mx - 0.13, my - 0.11, mx - 0.03, my - 0.06);
@@ -3669,7 +3685,7 @@ function starShape(c, x, y, R, r, rot) {
   c.closePath();
 }
 
-function drawShoe(c, x, y, a, face, team, scale) {
+function drawShoe(c, x, y, a, face, team, scale, col) {
   const k = Math.sqrt(scale) * 1.22;
   c.save(); c.translate(x, y + 2); c.scale(face * k, k);
   c.rotate(-(a - REST_A) * 0.85);
@@ -3677,8 +3693,8 @@ function drawShoe(c, x, y, a, face, team, scale) {
   c.beginPath();
   c.moveTo(-15, -11); c.quadraticCurveTo(-4, -15, 4, -9); c.quadraticCurveTo(18, -9, 22, 2); c.quadraticCurveTo(22, 11, 10, 11);
   c.lineTo(-15, 11); c.quadraticCurveTo(-20, 0, -15, -11); c.closePath();
-  fillOut(c, team.main, 2.6);
-  c.strokeStyle = '#FFFFFF'; c.lineWidth = 2.4;
+  fillOut(c, col || team.main, 2.6);
+  c.strokeStyle = col ? team.main : '#FFFFFF'; c.lineWidth = 2.4;
   for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(-8 + k * 6, -6); c.lineTo(-4 + k * 6, 4); c.stroke(); }
   c.fillStyle = '#1B2030'; c.fillRect(-15, 9, 34, 4);
   for (let k = 0; k < 4; k++) c.fillRect(-12 + k * 8, 12, 3, 3);
@@ -5852,7 +5868,7 @@ setInterval(() => { if (M.G && M.mode !== 'demo') renderNetbar(); else $('#netba
 
 // ---------- a newer version on the site: take it by itself ----------
 // phones keep an open page (and the site's page) for a long time, so look now and then and reload on the title screen
-var BUILD_ID = '3b5638ce03';
+var BUILD_ID = '5b4c2e2995';
 var Updater = {
   busy: false, pending: false,
   safe() {
