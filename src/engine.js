@@ -45,7 +45,7 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0, hot: 0, drunk: 0,
     hp: 1, hurtT: -9, burnT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
@@ -240,6 +240,7 @@ function tickTimers(G, p, dt) {
   if (p.stretch > 0) p.stretch = Math.max(0, p.stretch - dt);
   if (p.muscle > 0) p.muscle = Math.max(0, p.muscle - dt);
   if (p.hot > 0) p.hot = Math.max(0, p.hot - dt);
+  if (p.drunk > 0) p.drunk = Math.max(0, p.drunk - dt);
   // health: full again after a knock-down, and slowly back when left alone for a while
   if (p.hp < 1) {
     if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
@@ -277,6 +278,8 @@ function stepPlayer(G, p, inp, dt) {
   if (p.frz > 0) { if (p.ground) p.vx *= 0.5; }
   else {
     let want = mx * spdOf(ch.spd) * speedMul(p);
+    // tipsy (のめのめ攻撃): slower, and weaving about whatever you press
+    if (p.drunk > 0 && !off) want = want * 0.75 + Math.sin(G.t * 2.6 + p.i * 1.7) * 230 + Math.sin(G.t * 6.3 + p.i) * 80;
     // the wind pushes the other team back toward their own goal
     if (G.wind.t > 0 && p.team !== G.wind.team) want += (G.wind.team === 0 ? 1 : -1) * 300;
     const acc = p.ground ? (mx ? 5600 : 6200) : (mx ? 3300 : 900);
@@ -286,7 +289,7 @@ function stepPlayer(G, p, inp, dt) {
   if (!off && inp.jp) p.jumpBuf = 0.12;
   if (p.jumpBuf > 0) {
     if (!off && (p.ground || p.coyote > 0)) {
-      p.vy = -jmpOf(ch.jmp) * jumpMul(p);
+      p.vy = -jmpOf(ch.jmp) * jumpMul(p) * (p.drunk > 0 ? 0.86 : 1);
       p.ground = false; p.coyote = 0; p.jumpBuf = 0;
       ev(G, 'jump', { p: p.i });
     } else p.jumpBuf -= dt;
@@ -379,6 +382,9 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'drink') {
+    ev(G, 'cheers', { p: p.i });
+    for (const q of foes) { q.drunk = Math.max(q.drunk, DRUNK_T); ev(G, 'drunk', { p: q.i, by: p.i }); }
   } else if (kind === 'hot') {
     p.hot = HOT_T;
     ev(G, 'boil', { p: p.i });
@@ -643,7 +649,7 @@ function kickBall(G, b, p, head) {
   const [, py] = pivotOf(p);
   a += clamp((py - b.y) * 0.0025, -0.04, 0.14);
   // just a touch of luck, so two players kicking face to face do not lock up
-  a += (G.rng() - 0.5) * 0.08;
+  a += (G.rng() - 0.5) * (p.drunk > 0 ? 0.9 : 0.08);
   const near = Math.abs(b.x - b.scrumX) < 170 && G.t - b.kickT < 0.7 && b.kickTeam !== p.team;
   b.scrum = near ? b.scrum + 1 : 0; b.scrumX = b.x;
   if (b.scrum >= 3) { a = 0.95 + G.rng() * 0.4; b.scrum = 0; }

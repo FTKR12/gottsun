@@ -107,7 +107,8 @@ html.playing,html.playing body,html.playing #app{touch-action:none}
 .seg button:disabled{opacity:.4}
 
 /* ---------- character picker ---------- */
-.pick{display:grid;grid-template-columns:repeat(12,1fr);gap:5px}
+.pick{display:grid;grid-template-columns:repeat(13,1fr);gap:4px}
+.pick button{font-size:11px}
 .pick button{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 6px;border-radius:14px;border:0;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 2px var(--chalk-faint);font:800 12px/1.2 var(--font-ui)}
 .pick canvas{width:100%;max-width:72px;aspect-ratio:1;height:auto}
 .pick button[aria-pressed="true"]{background:rgba(255,210,63,.16);box-shadow:inset 0 0 0 3px var(--yellow)}
@@ -222,8 +223,8 @@ html.playing,html.playing body,html.playing #app{touch-action:none}
   .board{padding:16px 14px 14px;border-width:4px}
   .board>.actions{margin:14px -14px -14px;padding:10px 14px 12px;bottom:-14px}
   .board h2{font-size:21px}
-  .pick{grid-template-columns:repeat(6,1fr);gap:6px}
-  .pick button{font-size:11px;padding:5px 1px}
+  .pick{grid-template-columns:repeat(7,1fr);gap:4px}
+  .pick button{font-size:10px;padding:4px 0}
   .title-menu .big{min-height:64px;font-size:20px;min-width:min(260px,100%)}
   .field{grid-template-columns:1fr}
   .field{background:linear-gradient(180deg,transparent calc(50% - 1.5px),var(--chalk-soft) calc(50% - 1.5px) calc(50% + 1.5px),transparent calc(50% + 1.5px))}

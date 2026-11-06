@@ -40,6 +40,7 @@ const GAUGE_TOUCH = 0.05;  // ... per touch of the ball
 const GAUGE_CONCEDE = 0.18;
 const HIT_STUN = 2.6;       // knocked down this long when the health runs out
 const HOT_T = 6;           // まっかっかヘッド
+const DRUNK_T = 5;         // のめのめ攻撃: tipsy this long
 const MUSCLE_T = 7;        // ムキムキうで lasts this long (the first part is the flex)
 const FIST_R = 0.4;        // the muscle fist, in head radii// ... for the team that let a goal in
 
@@ -79,8 +80,10 @@ const CHARS = [
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'いじり方をミスるとキレるので要注意' },
   { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.95, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 1,
     skin: '#F4D5BC', hair: '#E3C07A', hair2: '#6E4E30', look: 'longhair', blurb: '金髪でクールな手足長男' },
-  { id: 'tomohiro', name: 'ともひろ', type: 'タマル', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1,
+  { id: 'kitahara', name: '北原', type: 'タマル', size: 1.0, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1,
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
+  { id: 'masato', name: 'まさと', type: 'イケメン', size: 1.0, body: 3, spd: 3, jmp: 4, kck: 3, sup: 'drink', mass: 1, beer: true,
+    skin: '#F3D2B8', hair: '#141418', hair2: '#383842', look: 'masato', blurb: 'テニサーの長。お酒を手にすると。。。' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
 
@@ -95,6 +98,7 @@ const SUPERS = {
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  drink:   { name: 'のめのめ攻撃',     icon: '🍺', armed: false, desc: '相手チーム全員にビールをのませる！ のまされた相手は5秒間よっぱらってフラフラ' },
   hot:     { name: 'まっかっかヘッド', icon: '🥵', armed: false, desc: '顔が真っ赤に！ 6秒間、頭がアツアツになって、当たったボールはロケットみたいに飛んでいく。さわった相手は「あちっ！」' },
   muscle:  { name: 'ムキムキうで',     icon: '💪', armed: false, desc: '7秒間、うでがムキムキに！ キックボタンでパンチ。ボールをはじき返し、当たった相手には大ダメージ' },
   stretch: { name: 'ぐーんとのっぽ',   icon: '🦒', armed: false, desc: '7秒間、手足がぐーんとのびて背が高くなる。高いボールにとどき、ゴール前のかべにもなる' },

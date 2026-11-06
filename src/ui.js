@@ -218,6 +218,8 @@ function onEvent(e, remote) {
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
     case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'cheers': if (P) { P._cheersT = G.t; floatText(P.x, P.y - P.r - 54, 'のめのめ〜！', '#FFE7A8', 40, 1.2); ring(P.x, P.y, '#F0A928', 30, 170, 0.45, 10); S('cheers'); } break;
+    case 'drunk': if (P) { floatText(P.x, P.y - P.r - 40, '🍺 ヒック', '#FFE7A8', 30, 1.0); puff(P.x, P.y - P.r * 0.5, 10, '#FFF6D0', 160, 60, 7, 0.6); S('hic'); } break;
     case 'boil': if (P) { floatText(P.x, P.y - P.r - 50, 'ボッ！', '#FFB0A0', 42, 0.9); ring(P.x, P.y, '#FF4A3A', 30, 170, 0.45, 10); puff(P.x, P.y - P.r, 12, 'rgba(255,255,255,.9)', 160, 120, 12, 0.8, 'smoke'); S('boil'); } break;
     case 'sizzle': ring(e.x, e.y, '#FF6A2A', 12, 70, 0.3, 7); puff(e.x, e.y, 8, '#FFB347', 300, 40, 7, 0.4, 'flame'); S('sizzle'); break;
     case 'flex': if (P) { floatText(P.x, P.y - P.r - 50, 'ムキッ！', '#FFE1B0', 40, 1.0); ring(P.x, P.y, '#FFB07A', 30, 160, 0.45, 9); S('flex'); } break;

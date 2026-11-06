@@ -316,7 +316,7 @@ function encodeSnap(G, seq) {
     b: [r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot), b.held ? 1 : 0, Math.max(0, MODES.indexOf(b.mode)), r2(b.modeT), b.modeTeam, b.last, b.r, b.ghostP, r2(b.heatT || 0)],
     f: G.fakes.map(f => [f.id, r0(f.x), r0(f.y), r0(f.vx), r0(f.vy)]),
     p: G.players.map(p => [r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), p.ground ? 1 : 0, p.kick.t >= 0 ? r3(p.kick.t) : -1, p.kick.seq,
-      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp), r2(p.hot)]),
+      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp), r2(p.hot), r2(p.drunk)]),
     it: G.items.map(i => [i.id, ITEM_KEYS.indexOf(i.k), r0(i.x), r0(i.y), r2(i.t)]),
     gh: G.goalH, gx: G.goalFx.map(f => [f.k, r2(f.t)]), bb: r2(G.bigBallT), fl: r2(G.floatT), wd: [G.wind.team, r2(G.wind.t)],
     lg: G.lastGoal ? [G.lastGoal.team, G.lastGoal.p, G.lastGoal.own ? 1 : 0] : null,
@@ -346,7 +346,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
   // players: effects for everyone; positions only for the ones this phone does not move
   s.p.forEach((a, i) => {
     const p = G.players[i]; if (!p) return;
-    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0; p.muscle = a[22] || 0; p.hp = a[23] == null ? 1 : a[23]; p.hot = a[24] || 0;
+    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0; p.muscle = a[22] || 0; p.hp = a[23] == null ? 1 : a[23]; p.hot = a[24] || 0; p.drunk = a[25] || 0;
     if (p.i !== myIdx) {
       p.scale = a[15]; p.r = HEAD_R * p.scale; p.landT = a[17]; p.legK = a[21] || targetLeg(p);
       if (a[5] >= 0) { if (p.kick.seq !== a[6] || p.kick.t < 0) { p.kick.seq = a[6]; p.kick.t = a[5]; } } else p.kick.t = -1;
@@ -359,7 +359,8 @@ function guestApplySnap(G, s, myIdx, onEvent) {
     if (e.k === 'reset') { NetSync.epoch = e.ep; for (const p of G.players) if (p.owned) placeAtStart(G, p); NetSync.ballErr = [0, 0]; NetSync.disp = []; }
     if (e.k === 'knock' || e.k === 'bump') { const p = G.players[e.p]; if (p && p.owned && e.ep === NetSync.epoch) { p.vx = e.vx; p.vy = e.vy; p.ground = false; } }
     // own jumps, swings and supers were already shown here
-    if ((e.k === 'super' || e.k === 'swing' || e.k === 'flex' || e.k === 'boil') && G.players[e.p] && G.players[e.p].owned) continue;
+    const ownP = i => G.players[i] && G.players[i].owned;
+    if (((e.k === 'super' || e.k === 'swing' || e.k === 'flex' || e.k === 'boil' || e.k === 'cheers') && ownP(e.p)) || (e.k === 'drunk' && ownP(e.by))) continue;
     onEvent(e, true);
   }
   // a reset the events did not carry (or the first picture after joining mid-match)
