@@ -45,7 +45,8 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0,
+    hp: 1, hurtT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
     cpu: null, away: false,
@@ -99,7 +100,16 @@ function circRect(cx, cy, r, x0, y0, x1, y1) {
 }
 function speedMul(p) { return (p.dash > 0 ? 1.32 : 1) * (p.giant > 0 ? 0.92 : 1) * (p.cpuSpeed || 1); }
 function jumpMul(p) { return (p.dash > 0 ? 1.12 : 1) * (p.giant > 0 ? 0.95 : 1); }
-function massOf(p) { return CHARS[p.char].mass * p.scale * p.scale; }
+function massOf(p) { return CHARS[p.char].mass * p.scale * p.scale * (p.muscle > 0 ? 2 : 1); }
+// ムキムキうで: where the front fist is. A short flex first, then guarding the chin, punching out with the kick
+function fistAt(p, kt) {
+  const r = p.r;
+  if (MUSCLE_T - p.muscle < 0.8) return [p.x + p.face * r * 1.5, p.y - r * 0.42];
+  let ext = 0;
+  if (kt >= 0) ext = kt < KICK_FWD ? kt / KICK_FWD : Math.max(0, 1 - (kt - KICK_FWD) / KICK_BACK);
+  const e = ext * ext * (3 - 2 * ext);
+  return [p.x + p.face * r * (1.26 + 0.95 * e), p.y + r * (0.36 - 0.1 * e)];
+}
 function targetScale(p) {
   let s = CHARS[p.char].size || 1;
   if (p.big > 0) s *= 1.45;
@@ -133,7 +143,7 @@ function startX(G, p) {
 function placeAtStart(G, p) {
   p.x = startX(G, p); p.vx = 0; p.vy = 0; p.ground = true;
   p.scale = targetScale(p); p.r = HEAD_R * p.scale; p.legK = targetLeg(p); p.y = standY(p);
-  p.kick.t = -1; p.frz = 0; p.stn = 0; p.conf = 0; p.jumpBuf = 0;
+  p.kick.t = -1; p.frz = 0; p.stn = 0; p.conf = 0; p.jumpBuf = 0; p.hp = 1; p.hurtT = -9;
 }
 
 function resetPositions(G, first) {
@@ -168,6 +178,7 @@ function step(G, inputs) {
     else advanceKick(p, DT);
   }
   separatePlayers(G);
+  hitPlayers(G);
   if (!G.ball.held) {
     for (let s = 0; s < SUB; s++) ballSub(G, DT / SUB, s);
     stepFakes(G, DT);
@@ -226,6 +237,12 @@ function tickTimers(G, p, dt) {
   if (p.conf > 0) p.conf = Math.max(0, p.conf - dt);
   if (p.pow > 0) p.pow = Math.max(0, p.pow - dt);
   if (p.stretch > 0) p.stretch = Math.max(0, p.stretch - dt);
+  if (p.muscle > 0) p.muscle = Math.max(0, p.muscle - dt);
+  // health: full again after a knock-down, and slowly back when left alone for a while
+  if (p.hp < 1) {
+    if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
+    else if (p.hp > 0 && G.t - p.hurtT > 3) p.hp = Math.min(1, p.hp + 0.07 * dt);
+  }
   if (p.armed > 0) { p.armed -= dt; if (p.armed <= 0) { p.armed = 0; ev(G, 'fizzle', { p: p.i }); } }
   if (G.phase === 'play' && !p.armed && p.gauge < 1) p.gauge = Math.min(1, p.gauge + GAUGE_RATE * dt);
 }
@@ -360,6 +377,9 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'muscle') {
+    p.muscle = MUSCLE_T;
+    ev(G, 'flex', { p: p.i });
   } else if (kind === 'wind') {
     G.wind.team = p.team; G.wind.t = 1.7;
   } else if (kind === 'ramen') {
@@ -519,6 +539,22 @@ function ballVsPlayer(G, b, p, dt, s) {
     const hx = b.x - p.x, hy = b.y - p.y, hr = p.r + R + 16;
     if (hx * hx + hy * hy < hr * hr && hx * p.face > -p.r * 0.6) { kickBall(G, b, p, true); return; }
   }
+  // ムキムキうで: the punch (with the kick button), or the arm in the way
+  if (p.muscle > 0 && p.frz <= 0 && p.stn <= 0) {
+    const [qx, qy] = fistAt(p, kt), rr = FIST_R * p.r + R, dx = b.x - qx, dy = b.y - qy, d2 = dx * dx + dy * dy;
+    if (kt >= 0 && kt <= KICK_FWD + KICK_GRACE && !p.kick.hit && d2 < (rr + 14) * (rr + 14)) { punchBall(G, b, p); return; }
+    if (d2 < rr * rr) {
+      const d = Math.sqrt(d2) || 0.01, nx = dx / d, ny = dy / d;
+      b.x = qx + nx * rr; b.y = qy + ny * rr;
+      const rvx = b.vx - p.vx, rvy = b.vy - p.vy, vn = rvx * nx + rvy * ny;
+      if (vn < 0) {
+        b.vx -= 1.55 * vn * nx; b.vy -= 1.55 * vn * ny; b.vx += p.face * 160;
+        b.lastKind = 'head'; touchBall(G, b, p, false);
+        if (-vn > 260) ev(G, 'head', { p: p.i, v: -vn | 0, x: b.x | 0, y: b.y | 0 });
+      }
+      return;
+    }
+  }
   // the ghost ball slips through the first player of the other side it comes to (only a kick stops it)
   if (b.mode === 'ghost' && b.modeT > 0 && p.team !== b.modeTeam) {
     if (b.ghostP < 0 && Math.abs(b.x - p.x) < p.r + R + 20 && b.y > p.y - p.r - R - 20) {
@@ -622,6 +658,69 @@ function kickBall(G, b, p, head) {
   p.stats.shots++; b.lastKind = head ? 'head' : 'kick';
   ev(G, 'kick', { p: p.i, v: sp | 0, x: b.x | 0, y: b.y | 0, h: head ? 1 : 0 });
   touchBall(G, b, p, true);
+}
+
+// a muscle punch: hard and nearly flat (the held direction still steers it)
+function punchBall(G, b, p) {
+  p.kick.hit = true;
+  const dir = p.kick.dir || 0;
+  let a = dir < 0 ? 0.8 : dir > 0 ? 0.04 : 0.22;
+  a += (G.rng() - 0.5) * 0.06;
+  const sp = kckOf(CHARS[p.char].kck) * 1.16 * (p.pow > 0 ? 1.15 : 1) * (0.97 + G.rng() * 0.06);
+  b.vx = p.face * Math.cos(a) * sp + p.vx * 0.2; b.vy = -Math.sin(a) * sp;
+  b.av = -p.face * 18;
+  b.kickT = G.t; b.kickTeam = p.team; b.kickVx = b.vx; b.kickVy = b.vy;
+  const [qx, qy] = fistAt(p, p.kick.t), need = FIST_R * p.r + b.r + 1, dx = b.x - qx, dy = b.y - qy, d = Math.hypot(dx, dy) || 1;
+  if (d < need) { b.x = qx + dx / d * need; b.y = qy + dy / d * need; }
+  p.stats.shots++; b.lastKind = 'kick';
+  ev(G, 'punch', { p: p.i, x: b.x | 0, y: b.y | 0 });
+  touchBall(G, b, p, true);
+}
+
+// ---------- kicking (or punching) someone on the other side hurts ----------
+function hitPlayers(G) {
+  if (G.phase !== 'play') return;
+  for (const p of G.players) {
+    const kt = p.kick.t;
+    if (kt < 0 || kt > KICK_FWD + KICK_GRACE || p.frz > 0 || p.stn > 0) continue;
+    if (p.kick.pseq !== p.kick.seq) { p.kick.pseq = p.kick.seq; p.kick.pmask = 0; }
+    const [fx, fy] = footAt(p, kt), fist = p.muscle > 0 ? fistAt(p, kt) : null;
+    for (const q of G.players) {
+      if (q.team === p.team || q.stn > 0 || (p.kick.pmask & (1 << q.i))) continue;
+      const how = touchesPlayer(q, fx, fy, FOOT_R + 4) ? 'kick' : fist && touchesPlayer(q, fist[0], fist[1], FIST_R * p.r) ? 'punch' : '';
+      if (!how) continue;
+      p.kick.pmask |= 1 << q.i;
+      hurt(G, p, q, how, how === 'kick' ? fx : fist[0], how === 'kick' ? fy : fist[1]);
+    }
+  }
+}
+function touchesPlayer(q, x, y, rad) {
+  let dx = x - q.x, dy = y - q.y, rr = q.r + rad;
+  if (dx * dx + dy * dy < rr * rr) return true;
+  const cr = q.r * 0.52, y0 = q.y + q.r * 0.3, y1 = Math.max(y0, q.y + footOff(q) - cr), qy = clamp(y, y0, y1);
+  dx = x - q.x; dy = y - qy; rr = cr + rad;
+  return dx * dx + dy * dy < rr * rr;
+}
+function hurt(G, p, q, how, x, y) {
+  let dmg = 0.2 + 0.02 * CHARS[p.char].kck;          // four or five kicks
+  if (how === 'punch') dmg *= 1.8;
+  else if (p.muscle > 0) dmg *= 1.3;
+  if (p.pow > 0) dmg *= 1.2;
+  if (p.big > 0 || p.giant > 0) dmg *= 1.2;
+  q.hp = Math.max(0, q.hp - dmg); q.hurtT = G.t;
+  const dir = Math.sign(q.x - p.x) || p.face;
+  ev(G, 'hit', { p: q.i, by: p.i, x: x | 0, y: y | 0, how, hp: Math.round(q.hp * 100) / 100 });
+  if (q.hp <= 0) {
+    q.stn = Math.max(q.stn, HIT_STUN); q.armed = 0;
+    bump(G, q, dir, 520, -380);
+    ev(G, 'ko', { p: q.i, by: p.i });
+  } else if (how === 'punch') bump(G, q, dir, 460, -300);
+  else bump(G, q, dir, 280, -150);
+}
+// a push for someone who got hit (a joined phone moves its own player, so it is told too)
+function bump(G, q, dir, vx, vy) {
+  if (q.owned) { q.vx = dir * vx; q.vy = vy; q.ground = false; }
+  ev(G, 'bump', { p: q.i, vx: dir * vx, vy, ep: G.epoch });
 }
 
 function touchBall(G, b, p, kicked) {

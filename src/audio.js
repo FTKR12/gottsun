@@ -122,6 +122,10 @@ const Sound = (() => {
     wind() { noise({ ft: 'bandpass', f: 300, f2: 1100, d: 1.6, v: 0.3, q: 0.5, a: 0.2 }); },
     dazzle() { for (let i = 0; i < 6; i++) tone({ f: 1400 + i * 380, d: 0.18, v: 0.06, at: i * 0.035, type: 'triangle' }); tone({ f: 300, f2: 2400, d: 0.35, v: 0.06, type: 'sine' }); },
     stretch() { tone({ f: 260, f2: 1300, d: 0.7, v: 0.12, type: 'sine', vib: 6, vibD: 25 }); tone({ f: 520, f2: 2000, d: 0.5, v: 0.05, type: 'triangle', at: 0.15 }); },
+    flex() { tone({ f: 180, f2: 420, d: 0.25, v: 0.16, type: 'square' }); tone({ f: 523, d: 0.18, v: 0.08, type: 'triangle', at: 0.12 }); tone({ f: 784, d: 0.3, v: 0.08, type: 'triangle', at: 0.22 }); },
+    punch() { noise({ ft: 'lowpass', f: 1400, f2: 200, d: 0.22, v: 0.42 }); tone({ f: 160, f2: 55, d: 0.25, v: 0.3, type: 'square' }); },
+    hit(big) { noise({ ft: 'bandpass', f: big ? 900 : 1300, d: 0.1, v: big ? 0.35 : 0.25, q: 1.2 }); tone({ f: big ? 220 : 330, f2: big ? 80 : 140, d: 0.14, v: 0.18, type: 'square' }); },
+    ko() { for (let i = 0; i < 4; i++) tone({ f: 1320 - i * 180, d: 0.12, v: 0.08, at: i * 0.11, type: 'triangle' }); tone({ f: 200, f2: 70, d: 0.5, v: 0.18, type: 'sawtooth' }); },
     slip() { tone({ f: 900, f2: 380, d: 0.4, v: 0.09, vib: 9, vibD: 40 }); },
     ramen() {
       if (!rate('ramen', 0.15)) return;

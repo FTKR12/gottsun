@@ -37,7 +37,10 @@ const KICK_GRACE = 0.035;  // a hit still counts this long after the swing reach
 const SUPER_ARM_T = 6;     // an armed super (next touch) waits this long, then fizzles
 const GAUGE_RATE = 1 / 24; // super gauge per second
 const GAUGE_TOUCH = 0.05;  // ... per touch of the ball
-const GAUGE_CONCEDE = 0.18;// ... for the team that let a goal in
+const GAUGE_CONCEDE = 0.18;
+const HIT_STUN = 2.6;       // knocked down this long when the health runs out
+const MUSCLE_T = 7;        // ムキムキうで lasts this long (the first part is the flex)
+const FIST_R = 0.4;        // the muscle fist, in head radii// ... for the team that let a goal in
 
 const TEAM_COL = [
   { main: '#E5322D', deep: '#A11C19', light: '#FF8A7A', name: 'あか', en: 'RED' },
@@ -69,7 +72,7 @@ const CHARS = [
     skin: '#B9C6D6', hair: '#6F8196', hair2: '#45E0FF', look: 'robot', blurb: '大きくて重い。当たり負けしない守りの名人' },
   { id: 'fuuta', name: 'フウタ', type: 'スピード＆ジャンプ', size: 0.94, body: 2, spd: 4, jmp: 4, kck: 3, sup: 'wind', mass: 0.9,
     skin: '#FFD8B8', hair: '#39B36B', hair2: '#9CF0B8', look: 'wind', blurb: '速さとジャンプのいいとこどり。キックは軽め' },
-  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'dazzle', mass: 1,
+  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'muscle', mass: 1,
     skin: '#F3CFAE', hair: '#1D1A21', hair2: '#3B3542', look: 'shades', blurb: '年齢不明のごつい少年' },
   { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'ramen', mass: 1,
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'いじり方をミスるとキレるので要注意' },
@@ -84,11 +87,12 @@ const SUPERS = {
   ice:     { name: 'こちこちシュート', icon: '❄️', armed: true,  desc: '次にさわったボールが氷の玉に。最初に当たった相手がこおって動けなくなる' },
   thunder: { name: 'かみなりドーン',   icon: '⚡', armed: false, desc: '相手チーム全員にカミナリ。しばらくしびれて動けない' },
   clone:   { name: 'ぶんしんボール',   icon: '🥷', armed: true,  desc: '次にさわったボールが3つにふえる。本物は1つだけ' },
-  giant:   { name: 'でかでかヘッド',   icon: '💪', armed: false, desc: '8秒間、頭がでっかくなる。ゴールをふさげる' },
+  giant:   { name: 'でかでかヘッド',   icon: '🗿', armed: false, desc: '8秒間、頭がでっかくなる。ゴールをふさげる' },
   ghost:   { name: 'きえるボール',     icon: '👻', armed: true,  desc: '次にさわったボールが、しばらくほとんど見えなくなる。最初に来た相手の体はすりぬける（キックなら止められる）' },
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  muscle:  { name: 'ムキムキうで',     icon: '💪', armed: false, desc: '7秒間、うでがムキムキに！ キックボタンでパンチ。ボールをはじき返し、当たった相手には大ダメージ' },
   stretch: { name: 'ぐーんとのっぽ',   icon: '🦒', armed: false, desc: '7秒間、手足がぐーんとのびて背が高くなる。高いボールにとどき、ゴール前のかべにもなる' },
   ramen:   { name: '替え玉パワー',     icon: '🍜', armed: false, desc: 'ラーメンで元気いっぱい！ 味方全員が6秒間、速く高くなりキックも強くなる。味方のゲージもたまる' },
 };

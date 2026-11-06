@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1F5E3A">
-<meta name="gottsun-build" content="c168cfeb96">
+<meta name="gottsun-build" content="737955b238">
 <meta name="description" content="大きな頭でヘディング！4人まで遊べるあたまサッカー。CPU対戦、1台でみんなで、スマホを合言葉でつないで遊べます。">
 <title>ゴッツンサッカー</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
@@ -413,6 +413,7 @@ html.playing,html.playing body,html.playing #app{touch-action:none}
         <div class="how-card"><h3>うごく・とぶ</h3><p>左右に走って、ジャンプでヘディング。相手の頭の上にも乗れます。</p></div>
         <div class="how-card"><h3>キック</h3><p>くつの前や頭のそばにボールがあるときに押すとシュート。頭に当たっても、ヘディングシュートになります。</p></div>
         <div class="how-card wide"><h3>けり分け</h3><p>ボタンはひとつのまま、押すときの向きで変わります。</p><ul class="kick-list"><li><b>前</b>（相手ゴールの方）＋キック：低くて速いシュート</li><li><b>キックだけ</b>：ふつうのシュート</li><li><b>後ろ</b>（自分のゴールの方）＋キック：高いループ</li><li><b>ジャンプ中に前</b>＋キック：たたきつけ</li></ul></div>
+        <div class="how-card"><h3>ダメージ</h3><p>相手をキックすると体力がへります（名札の上のバー）。なくなると、数秒うごけません。</p></div>
         <div class="how-card"><h3>スーパー</h3><p>名札の下のゲージがたまると光ります。スーパーボタンで、キャラクターごとの必殺わざ。</p></div>
         <div class="how-card"><h3>アイテム</h3><p>空から落ちてくるシャボン玉。頭でさわるか、ボールを当てると、最後にさわった人のものに。</p></div>
       </div>
@@ -518,7 +519,10 @@ const KICK_GRACE = 0.035;  // a hit still counts this long after the swing reach
 const SUPER_ARM_T = 6;     // an armed super (next touch) waits this long, then fizzles
 const GAUGE_RATE = 1 / 24; // super gauge per second
 const GAUGE_TOUCH = 0.05;  // ... per touch of the ball
-const GAUGE_CONCEDE = 0.18;// ... for the team that let a goal in
+const GAUGE_CONCEDE = 0.18;
+const HIT_STUN = 2.6;       // knocked down this long when the health runs out
+const MUSCLE_T = 7;        // ムキムキうで lasts this long (the first part is the flex)
+const FIST_R = 0.4;        // the muscle fist, in head radii// ... for the team that let a goal in
 
 const TEAM_COL = [
   { main: '#E5322D', deep: '#A11C19', light: '#FF8A7A', name: 'あか', en: 'RED' },
@@ -550,7 +554,7 @@ const CHARS = [
     skin: '#B9C6D6', hair: '#6F8196', hair2: '#45E0FF', look: 'robot', blurb: '大きくて重い。当たり負けしない守りの名人' },
   { id: 'fuuta', name: 'フウタ', type: 'スピード＆ジャンプ', size: 0.94, body: 2, spd: 4, jmp: 4, kck: 3, sup: 'wind', mass: 0.9,
     skin: '#FFD8B8', hair: '#39B36B', hair2: '#9CF0B8', look: 'wind', blurb: '速さとジャンプのいいとこどり。キックは軽め' },
-  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'dazzle', mass: 1,
+  { id: 'sakashita', name: '坂下', type: 'クセモノ', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 4, sup: 'muscle', mass: 1,
     skin: '#F3CFAE', hair: '#1D1A21', hair2: '#3B3542', look: 'shades', blurb: '年齢不明のごつい少年' },
   { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'ramen', mass: 1,
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'いじり方をミスるとキレるので要注意' },
@@ -565,11 +569,12 @@ const SUPERS = {
   ice:     { name: 'こちこちシュート', icon: '❄️', armed: true,  desc: '次にさわったボールが氷の玉に。最初に当たった相手がこおって動けなくなる' },
   thunder: { name: 'かみなりドーン',   icon: '⚡', armed: false, desc: '相手チーム全員にカミナリ。しばらくしびれて動けない' },
   clone:   { name: 'ぶんしんボール',   icon: '🥷', armed: true,  desc: '次にさわったボールが3つにふえる。本物は1つだけ' },
-  giant:   { name: 'でかでかヘッド',   icon: '💪', armed: false, desc: '8秒間、頭がでっかくなる。ゴールをふさげる' },
+  giant:   { name: 'でかでかヘッド',   icon: '🗿', armed: false, desc: '8秒間、頭がでっかくなる。ゴールをふさげる' },
   ghost:   { name: 'きえるボール',     icon: '👻', armed: true,  desc: '次にさわったボールが、しばらくほとんど見えなくなる。最初に来た相手の体はすりぬける（キックなら止められる）' },
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  muscle:  { name: 'ムキムキうで',     icon: '💪', armed: false, desc: '7秒間、うでがムキムキに！ キックボタンでパンチ。ボールをはじき返し、当たった相手には大ダメージ' },
   stretch: { name: 'ぐーんとのっぽ',   icon: '🦒', armed: false, desc: '7秒間、手足がぐーんとのびて背が高くなる。高いボールにとどき、ゴール前のかべにもなる' },
   ramen:   { name: '替え玉パワー',     icon: '🍜', armed: false, desc: 'ラーメンで元気いっぱい！ 味方全員が6秒間、速く高くなりキックも強くなる。味方のゲージもたまる' },
 };
@@ -664,7 +669,8 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1, muscle: 0,
+    hp: 1, hurtT: -9,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
     cpu: null, away: false,
@@ -718,7 +724,16 @@ function circRect(cx, cy, r, x0, y0, x1, y1) {
 }
 function speedMul(p) { return (p.dash > 0 ? 1.32 : 1) * (p.giant > 0 ? 0.92 : 1) * (p.cpuSpeed || 1); }
 function jumpMul(p) { return (p.dash > 0 ? 1.12 : 1) * (p.giant > 0 ? 0.95 : 1); }
-function massOf(p) { return CHARS[p.char].mass * p.scale * p.scale; }
+function massOf(p) { return CHARS[p.char].mass * p.scale * p.scale * (p.muscle > 0 ? 2 : 1); }
+// ムキムキうで: where the front fist is. A short flex first, then guarding the chin, punching out with the kick
+function fistAt(p, kt) {
+  const r = p.r;
+  if (MUSCLE_T - p.muscle < 0.8) return [p.x + p.face * r * 1.5, p.y - r * 0.42];
+  let ext = 0;
+  if (kt >= 0) ext = kt < KICK_FWD ? kt / KICK_FWD : Math.max(0, 1 - (kt - KICK_FWD) / KICK_BACK);
+  const e = ext * ext * (3 - 2 * ext);
+  return [p.x + p.face * r * (1.26 + 0.95 * e), p.y + r * (0.36 - 0.1 * e)];
+}
 function targetScale(p) {
   let s = CHARS[p.char].size || 1;
   if (p.big > 0) s *= 1.45;
@@ -752,7 +767,7 @@ function startX(G, p) {
 function placeAtStart(G, p) {
   p.x = startX(G, p); p.vx = 0; p.vy = 0; p.ground = true;
   p.scale = targetScale(p); p.r = HEAD_R * p.scale; p.legK = targetLeg(p); p.y = standY(p);
-  p.kick.t = -1; p.frz = 0; p.stn = 0; p.conf = 0; p.jumpBuf = 0;
+  p.kick.t = -1; p.frz = 0; p.stn = 0; p.conf = 0; p.jumpBuf = 0; p.hp = 1; p.hurtT = -9;
 }
 
 function resetPositions(G, first) {
@@ -787,6 +802,7 @@ function step(G, inputs) {
     else advanceKick(p, DT);
   }
   separatePlayers(G);
+  hitPlayers(G);
   if (!G.ball.held) {
     for (let s = 0; s < SUB; s++) ballSub(G, DT / SUB, s);
     stepFakes(G, DT);
@@ -845,6 +861,12 @@ function tickTimers(G, p, dt) {
   if (p.conf > 0) p.conf = Math.max(0, p.conf - dt);
   if (p.pow > 0) p.pow = Math.max(0, p.pow - dt);
   if (p.stretch > 0) p.stretch = Math.max(0, p.stretch - dt);
+  if (p.muscle > 0) p.muscle = Math.max(0, p.muscle - dt);
+  // health: full again after a knock-down, and slowly back when left alone for a while
+  if (p.hp < 1) {
+    if (p.hp <= 0 && p.stn <= 0) p.hp = 1;
+    else if (p.hp > 0 && G.t - p.hurtT > 3) p.hp = Math.min(1, p.hp + 0.07 * dt);
+  }
   if (p.armed > 0) { p.armed -= dt; if (p.armed <= 0) { p.armed = 0; ev(G, 'fizzle', { p: p.i }); } }
   if (G.phase === 'play' && !p.armed && p.gauge < 1) p.gauge = Math.min(1, p.gauge + GAUGE_RATE * dt);
 }
@@ -979,6 +1001,9 @@ function trySuper(G, p) {
     p.giant = 8;
   } else if (kind === 'stretch') {
     p.stretch = 7;
+  } else if (kind === 'muscle') {
+    p.muscle = MUSCLE_T;
+    ev(G, 'flex', { p: p.i });
   } else if (kind === 'wind') {
     G.wind.team = p.team; G.wind.t = 1.7;
   } else if (kind === 'ramen') {
@@ -1138,6 +1163,22 @@ function ballVsPlayer(G, b, p, dt, s) {
     const hx = b.x - p.x, hy = b.y - p.y, hr = p.r + R + 16;
     if (hx * hx + hy * hy < hr * hr && hx * p.face > -p.r * 0.6) { kickBall(G, b, p, true); return; }
   }
+  // ムキムキうで: the punch (with the kick button), or the arm in the way
+  if (p.muscle > 0 && p.frz <= 0 && p.stn <= 0) {
+    const [qx, qy] = fistAt(p, kt), rr = FIST_R * p.r + R, dx = b.x - qx, dy = b.y - qy, d2 = dx * dx + dy * dy;
+    if (kt >= 0 && kt <= KICK_FWD + KICK_GRACE && !p.kick.hit && d2 < (rr + 14) * (rr + 14)) { punchBall(G, b, p); return; }
+    if (d2 < rr * rr) {
+      const d = Math.sqrt(d2) || 0.01, nx = dx / d, ny = dy / d;
+      b.x = qx + nx * rr; b.y = qy + ny * rr;
+      const rvx = b.vx - p.vx, rvy = b.vy - p.vy, vn = rvx * nx + rvy * ny;
+      if (vn < 0) {
+        b.vx -= 1.55 * vn * nx; b.vy -= 1.55 * vn * ny; b.vx += p.face * 160;
+        b.lastKind = 'head'; touchBall(G, b, p, false);
+        if (-vn > 260) ev(G, 'head', { p: p.i, v: -vn | 0, x: b.x | 0, y: b.y | 0 });
+      }
+      return;
+    }
+  }
   // the ghost ball slips through the first player of the other side it comes to (only a kick stops it)
   if (b.mode === 'ghost' && b.modeT > 0 && p.team !== b.modeTeam) {
     if (b.ghostP < 0 && Math.abs(b.x - p.x) < p.r + R + 20 && b.y > p.y - p.r - R - 20) {
@@ -1241,6 +1282,69 @@ function kickBall(G, b, p, head) {
   p.stats.shots++; b.lastKind = head ? 'head' : 'kick';
   ev(G, 'kick', { p: p.i, v: sp | 0, x: b.x | 0, y: b.y | 0, h: head ? 1 : 0 });
   touchBall(G, b, p, true);
+}
+
+// a muscle punch: hard and nearly flat (the held direction still steers it)
+function punchBall(G, b, p) {
+  p.kick.hit = true;
+  const dir = p.kick.dir || 0;
+  let a = dir < 0 ? 0.8 : dir > 0 ? 0.04 : 0.22;
+  a += (G.rng() - 0.5) * 0.06;
+  const sp = kckOf(CHARS[p.char].kck) * 1.16 * (p.pow > 0 ? 1.15 : 1) * (0.97 + G.rng() * 0.06);
+  b.vx = p.face * Math.cos(a) * sp + p.vx * 0.2; b.vy = -Math.sin(a) * sp;
+  b.av = -p.face * 18;
+  b.kickT = G.t; b.kickTeam = p.team; b.kickVx = b.vx; b.kickVy = b.vy;
+  const [qx, qy] = fistAt(p, p.kick.t), need = FIST_R * p.r + b.r + 1, dx = b.x - qx, dy = b.y - qy, d = Math.hypot(dx, dy) || 1;
+  if (d < need) { b.x = qx + dx / d * need; b.y = qy + dy / d * need; }
+  p.stats.shots++; b.lastKind = 'kick';
+  ev(G, 'punch', { p: p.i, x: b.x | 0, y: b.y | 0 });
+  touchBall(G, b, p, true);
+}
+
+// ---------- kicking (or punching) someone on the other side hurts ----------
+function hitPlayers(G) {
+  if (G.phase !== 'play') return;
+  for (const p of G.players) {
+    const kt = p.kick.t;
+    if (kt < 0 || kt > KICK_FWD + KICK_GRACE || p.frz > 0 || p.stn > 0) continue;
+    if (p.kick.pseq !== p.kick.seq) { p.kick.pseq = p.kick.seq; p.kick.pmask = 0; }
+    const [fx, fy] = footAt(p, kt), fist = p.muscle > 0 ? fistAt(p, kt) : null;
+    for (const q of G.players) {
+      if (q.team === p.team || q.stn > 0 || (p.kick.pmask & (1 << q.i))) continue;
+      const how = touchesPlayer(q, fx, fy, FOOT_R + 4) ? 'kick' : fist && touchesPlayer(q, fist[0], fist[1], FIST_R * p.r) ? 'punch' : '';
+      if (!how) continue;
+      p.kick.pmask |= 1 << q.i;
+      hurt(G, p, q, how, how === 'kick' ? fx : fist[0], how === 'kick' ? fy : fist[1]);
+    }
+  }
+}
+function touchesPlayer(q, x, y, rad) {
+  let dx = x - q.x, dy = y - q.y, rr = q.r + rad;
+  if (dx * dx + dy * dy < rr * rr) return true;
+  const cr = q.r * 0.52, y0 = q.y + q.r * 0.3, y1 = Math.max(y0, q.y + footOff(q) - cr), qy = clamp(y, y0, y1);
+  dx = x - q.x; dy = y - qy; rr = cr + rad;
+  return dx * dx + dy * dy < rr * rr;
+}
+function hurt(G, p, q, how, x, y) {
+  let dmg = 0.2 + 0.02 * CHARS[p.char].kck;          // four or five kicks
+  if (how === 'punch') dmg *= 1.8;
+  else if (p.muscle > 0) dmg *= 1.3;
+  if (p.pow > 0) dmg *= 1.2;
+  if (p.big > 0 || p.giant > 0) dmg *= 1.2;
+  q.hp = Math.max(0, q.hp - dmg); q.hurtT = G.t;
+  const dir = Math.sign(q.x - p.x) || p.face;
+  ev(G, 'hit', { p: q.i, by: p.i, x: x | 0, y: y | 0, how, hp: Math.round(q.hp * 100) / 100 });
+  if (q.hp <= 0) {
+    q.stn = Math.max(q.stn, HIT_STUN); q.armed = 0;
+    bump(G, q, dir, 520, -380);
+    ev(G, 'ko', { p: q.i, by: p.i });
+  } else if (how === 'punch') bump(G, q, dir, 460, -300);
+  else bump(G, q, dir, 280, -150);
+}
+// a push for someone who got hit (a joined phone moves its own player, so it is told too)
+function bump(G, q, dir, vx, vy) {
+  if (q.owned) { q.vx = dir * vx; q.vy = vy; q.ground = false; }
+  ev(G, 'bump', { p: q.i, vx: dir * vx, vy, ep: G.epoch });
 }
 
 function touchBall(G, b, p, kicked) {
@@ -1593,6 +1697,7 @@ function plan(G, p, c, lv) {
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
     else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'muscle') c.wantSuper = (d < 380 && front) || !!threat;
     else if (kind === 'stretch') c.wantSuper = !!threat || (ballOurHalf && d < 380) || (attackThird && d < 320);
     else if (kind === 'ramen') c.wantSuper = d < 520;
     else if (kind === 'wind') c.wantSuper = attackThird && (b.x - p.x) * dir > 0 && d < 500 || (!!threat && (b.x - p.x) * dir > -40);
@@ -1733,6 +1838,11 @@ function kickChance(G, p, c, lv) {
   const la = 0.05;
   const bx = b.x + b.vx * la, by = b.y + b.vy * la;
   const rel = (bx - p.x) * dir;
+  // ムキムキうで: punch it when it is in front of the fist
+  if (p.muscle > 0) {
+    const [qx, qy] = fistAt(p, -1), fr = FIST_R * p.r, ahead = (bx - qx) * dir;
+    if (ahead > -fr && ahead < p.r + R && Math.abs(by - qy) < fr + R + 6) return c.rng() < 0.8;
+  }
   // against the head: a header shot
   const hd = Math.hypot(bx - p.x, by - p.y);
   if (rel > -p.r * 0.4 && hd < (p.r + R + 10) * lv.kickRange && by < p.y + p.r * 0.2) return c.rng() < 0.7;
@@ -1786,7 +1896,7 @@ function worldTransform(c, sx, sy) {
 }
 
 // ---------------- the stadium (drawn once per size into a canvas) ----------------
-const SPONSORS = ['ポヨン牛乳', 'ヘディング堂', 'でかあたまラーメン', 'ゴッツン飲料', 'スパイク商会', 'おでこ眼鏡店', 'ボヨヨン保険', 'かちわり氷'];
+const SPONSORS = ['むさしの森珈琲'];
 const BG = { cv: null, key: '', crowd: null };
 
 function stadiumCanvas(stKey) {
@@ -1838,14 +1948,14 @@ function drawStadium(c, S, stKey) {
   c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(x0, mid - 16, x1 - x0, 3);
   crowd(c, rnd, x0, x1, mid + 8, standBot - 4, S, 0.5);
   // banners hung on the railing
-  const banners = ['いけー！', 'あたまで！', 'ゴッツン！', 'まもれー！'];
+  const banners = ['らぴす', 'さちえ', 'いててて', 'やすお❤️'];
   banners.forEach((txt, i) => {
     const bx = 190 + i * 370, col = TEAM_COL[i < 2 ? 0 : 1];
     c.save(); c.translate(bx, mid - 34);
     c.fillStyle = i % 2 ? '#F4F6FA' : col.main;
     c.beginPath(); c.moveTo(0, 0); c.lineTo(170, 0); c.lineTo(165, 40); c.lineTo(5, 40); c.closePath(); c.fill();
     c.fillStyle = i % 2 ? col.main : '#FFFFFF';
-    c.font = `26px ${FONT_SIGN}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, 85, 21);
+    c.font = `26px ${FONT_SIGN}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, 85, 21, 156);
     c.restore();
   });
   // floodlight towers
@@ -1861,13 +1971,13 @@ function drawStadium(c, S, stKey) {
     }
   }
   // advertising boards, muted so the players stand out
-  const cols = ['#E9B93A', '#EEF1F6', '#C9433C', '#3B66C4', '#2C9A66', '#E07B3C', '#6E58B8', '#EEF1F6'];
+  const cols = ['#EEF1F6', '#2C7A52'];
   for (let i = Math.floor((x0 - 40) / 200); i * 200 < x1; i++) {
-    const k = ((i % 8) + 8) % 8, bx = i * 200, col = mix(cols[k], S.stand, S.light ? 0.3 : 0.12);
+    const k = ((i % cols.length) + cols.length) % cols.length, bx = i * 200, col = mix(cols[k], S.stand, S.light ? 0.3 : 0.12);
     c.fillStyle = col; c.fillRect(bx, ab, 200, ah);
     c.fillStyle = cols[k] === '#EEF1F6' || cols[k] === '#E9B93A' ? 'rgba(27,32,48,.85)' : 'rgba(255,255,255,.92)';
     c.font = `19px ${FONT_SIGN}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(SPONSORS[k], bx + 100, ab + ah / 2 + 1, 180);
+    c.fillText(SPONSORS[((i % SPONSORS.length) + SPONSORS.length) % SPONSORS.length], bx + 100, ab + ah / 2 + 1, 180);
     c.fillStyle = 'rgba(0,0,0,.22)'; c.fillRect(bx + 198, ab, 2, ah);
   }
   // the far side of the pitch, behind the players
@@ -2049,6 +2159,7 @@ function drawPlayer(c, p, G, t, opt) {
   const [fx, fy, fa] = footAt(p, kt);
   const kicking = kt >= 0;
   if (ch.limbs) drawLimbs(c, p, ch, G, t, fx, fy, kicking);
+  if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'back');
   if (!kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
   c.save();
   c.translate(p.x, p.y);
@@ -2078,8 +2189,12 @@ function drawPlayer(c, p, G, t, opt) {
   const ld = Math.hypot(lx, ly) || 1; lx /= ld; ly /= ld;
   const mood = moodOf(p, G, t);
   drawHead(c, ch, p, lw, t, lx, ly, mood);
+  // just got kicked: a red flash
+  const hf = 0.3 - (G.t - (p.hitAt == null ? -9 : p.hitAt));
+  if (hf > 0) { c.fillStyle = `rgba(255,70,70,${Math.min(0.55, hf * 1.8)})`; circ(c, 0, 0, 1); c.fill(); }
   c.restore();
   if (kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
+  if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'front');
   // frozen: an ice block over everything
   if (p.frz > 0) {
     const a = Math.min(1, p.frz * 3);
@@ -2112,7 +2227,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -2127,6 +2242,60 @@ function moodOf(p, G, t) {
   const bl = (t * 0.9 + p.i * 0.37) % 4;
   if (bl < 0.09) return 'blink';
   return 'calm';
+}
+
+// ムキムキうで (world space): the back arm flexing behind the head, the front one guarding or punching
+function drawMuscleArm(c, p, ch, t, part) {
+  const r = p.r, f = p.face, age = MUSCLE_T - p.muscle;
+  const g = clamp(Math.min(age / 0.25, p.muscle / 0.3), 0, 1);
+  if (g <= 0.02) return;
+  const flex = age < 0.8;
+  const X = (u, v) => [p.x + f * u * r, p.y + v * r];
+  let S, E, F;
+  if (part === 'back') {
+    S = X(-0.55, 0.62);
+    if (flex) { E = X(-1.62, 0.4); F = X(-1.56, -0.5); }
+    else { E = X(-1.48, 0.52); F = X(-1.4, -0.3 + Math.sin(t * 6) * 0.05); }
+  } else {
+    S = X(0.5, 0.68);
+    F = fistAt(p, p.kick.t);
+    if (flex) E = X(1.62, 0.42);
+    else {
+      const ext = clamp(((F[0] - p.x) * f / r - 1.26) / 0.95, 0, 1);   // the elbow straightens as it punches
+      E = X(1.12 + 0.28 * ext, 1.02 - 0.5 * ext);
+    }
+  }
+  const skin = part === 'back' ? mix(ch.skin, '#7A5040', 0.16) : ch.skin;
+  const w1 = 0.64 * r * g, w2 = 0.5 * r * g, fr = FIST_R * r * (0.6 + 0.4 * g);
+  const ux = E[0] - S[0], uy = E[1] - S[1], ul = Math.hypot(ux, uy) || 1;
+  let nx = -uy / ul, ny = ux / ul; if (ny > 0) { nx = -nx; ny = -ny; }
+  const pump = flex ? 1 + 0.1 * Math.sin(t * 20) : 1;
+  const bx = S[0] + ux * 0.52 + nx * w1 * 0.34, by = S[1] + uy * 0.52 + ny * w1 * 0.34, rot = Math.atan2(uy, ux);
+  const brx = ul * 0.42 * pump, bry = w1 * 0.72 * pump;
+  const seg = (A, B) => { c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(B[0], B[1]); c.stroke(); };
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  // outlines first, then the skin over them, so it reads as one arm
+  c.strokeStyle = OUT; c.fillStyle = OUT;
+  c.lineWidth = w1 + 5; seg(S, E);
+  c.lineWidth = w2 + 5; seg(E, F);
+  ell(c, bx, by, brx + 2.5, bry + 2.5, rot); c.fill();
+  circ(c, F[0], F[1], fr + 2.5); c.fill();
+  c.strokeStyle = skin; c.fillStyle = skin;
+  c.lineWidth = w1; seg(S, E);
+  c.lineWidth = w2; seg(E, F);
+  ell(c, bx, by, brx, bry, rot); c.fill();
+  circ(c, F[0], F[1], fr); c.fill();
+  // the muscle line, a shine and the knuckles
+  c.strokeStyle = 'rgba(130,70,50,.5)'; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(bx - nx * bry * 0.15, by - ny * bry * 0.15, brx * 0.6, bry * 0.5, rot, Math.PI * 0.15, Math.PI * 0.85); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.45)'; ell(c, bx + nx * bry * 0.45 - ux / ul * brx * 0.2, by + ny * bry * 0.45 - uy / ul * brx * 0.2, brx * 0.32, bry * 0.16, rot); c.fill();
+  c.strokeStyle = 'rgba(130,70,50,.55)'; c.lineWidth = 1.8;
+  const kx = F[0] + f * fr * 0.45;
+  for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(kx, F[1] + k * fr * 0.36 - fr * 0.12); c.lineTo(kx + f * fr * 0.3, F[1] + k * fr * 0.36 - fr * 0.12); c.stroke(); }
+  if (flex) {
+    c.fillStyle = 'rgba(255,255,255,.9)';
+    starShape(c, bx + nx * bry * 1.4, by + ny * bry * 1.4, 7, 2.6, t * 4); c.fill();
+  }
 }
 
 // ゆうき: long arms in rolled-up white sleeves, one long leg, and an apron (world space)
@@ -2727,9 +2896,17 @@ function drawTag(c, p, opt, t) {
   c.fillStyle = 'rgba(0,0,0,.35)'; rrect(c, p.x - gw / 2, y + 7, gw, 5, 2.5); c.fill();
   c.fillStyle = p.armed > 0 ? superColor(CHARS[p.char].sup) : full ? '#FFD740' : '#FFFFFF';
   rrect(c, p.x - gw / 2, y + 7, gw * (p.armed > 0 ? p.armed / SUPER_ARM_T : p.gauge), 5, 2.5); c.fill();
+  // health (only once it has been knocked about)
+  let my = 0;
+  if (p.hp < 0.995 || (p.hp <= 0 && p.stn > 0)) {
+    const hw = Math.max(46, w - 10), hy = y - 27, hp = clamp(p.hp, 0, 1);
+    rrect(c, p.x - hw / 2 - 2, hy - 2, hw + 4, 10, 5); c.fillStyle = 'rgba(16,22,40,.85)'; c.fill();
+    if (hp > 0) { rrect(c, p.x - hw / 2, hy, hw * hp, 6, 3); c.fillStyle = hp > 0.6 ? '#5BE37A' : hp > 0.3 ? '#FFD740' : '#FF5A5A'; c.fill(); }
+    my = 12;
+  }
   if (opt.me) {
     c.fillStyle = '#FFD740';
-    c.beginPath(); c.moveTo(p.x - 9, y - 26); c.lineTo(p.x + 9, y - 26); c.lineTo(p.x, y - 16); c.closePath(); c.fill(); c.lineWidth = 2; c.strokeStyle = OUT; c.stroke();
+    c.beginPath(); c.moveTo(p.x - 9, y - 26 - my); c.lineTo(p.x + 9, y - 26 - my); c.lineTo(p.x, y - 16 - my); c.closePath(); c.fill(); c.lineWidth = 2; c.strokeStyle = OUT; c.stroke();
   }
 }
 
@@ -3048,6 +3225,10 @@ const Sound = (() => {
     wind() { noise({ ft: 'bandpass', f: 300, f2: 1100, d: 1.6, v: 0.3, q: 0.5, a: 0.2 }); },
     dazzle() { for (let i = 0; i < 6; i++) tone({ f: 1400 + i * 380, d: 0.18, v: 0.06, at: i * 0.035, type: 'triangle' }); tone({ f: 300, f2: 2400, d: 0.35, v: 0.06, type: 'sine' }); },
     stretch() { tone({ f: 260, f2: 1300, d: 0.7, v: 0.12, type: 'sine', vib: 6, vibD: 25 }); tone({ f: 520, f2: 2000, d: 0.5, v: 0.05, type: 'triangle', at: 0.15 }); },
+    flex() { tone({ f: 180, f2: 420, d: 0.25, v: 0.16, type: 'square' }); tone({ f: 523, d: 0.18, v: 0.08, type: 'triangle', at: 0.12 }); tone({ f: 784, d: 0.3, v: 0.08, type: 'triangle', at: 0.22 }); },
+    punch() { noise({ ft: 'lowpass', f: 1400, f2: 200, d: 0.22, v: 0.42 }); tone({ f: 160, f2: 55, d: 0.25, v: 0.3, type: 'square' }); },
+    hit(big) { noise({ ft: 'bandpass', f: big ? 900 : 1300, d: 0.1, v: big ? 0.35 : 0.25, q: 1.2 }); tone({ f: big ? 220 : 330, f2: big ? 80 : 140, d: 0.14, v: 0.18, type: 'square' }); },
+    ko() { for (let i = 0; i < 4; i++) tone({ f: 1320 - i * 180, d: 0.12, v: 0.08, at: i * 0.11, type: 'triangle' }); tone({ f: 200, f2: 70, d: 0.5, v: 0.18, type: 'sawtooth' }); },
     slip() { tone({ f: 900, f2: 380, d: 0.4, v: 0.09, vib: 9, vibD: 40 }); },
     ramen() {
       if (!rate('ramen', 0.15)) return;
@@ -3603,7 +3784,7 @@ function encodeSnap(G, seq) {
     b: [r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot), b.held ? 1 : 0, Math.max(0, MODES.indexOf(b.mode)), r2(b.modeT), b.modeTeam, b.last, b.r, b.ghostP],
     f: G.fakes.map(f => [f.id, r0(f.x), r0(f.y), r0(f.vx), r0(f.vy)]),
     p: G.players.map(p => [r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), p.ground ? 1 : 0, p.kick.t >= 0 ? r3(p.kick.t) : -1, p.kick.seq,
-      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK)]),
+      r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp)]),
     it: G.items.map(i => [i.id, ITEM_KEYS.indexOf(i.k), r0(i.x), r0(i.y), r2(i.t)]),
     gh: G.goalH, gx: G.goalFx.map(f => [f.k, r2(f.t)]), bb: r2(G.bigBallT), fl: r2(G.floatT), wd: [G.wind.team, r2(G.wind.t)],
     lg: G.lastGoal ? [G.lastGoal.team, G.lastGoal.p, G.lastGoal.own ? 1 : 0] : null,
@@ -3633,7 +3814,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
   // players: effects for everyone; positions only for the ones this phone does not move
   s.p.forEach((a, i) => {
     const p = G.players[i]; if (!p) return;
-    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0;
+    p.gauge = a[7]; p.armed = a[8]; p.frz = a[9]; p.stn = a[10]; p.big = a[11]; p.tiny = a[12]; p.dash = a[13]; p.giant = a[14]; p.away = !!a[16]; p.conf = a[18] || 0; p.pow = a[19] || 0; p.stretch = a[20] || 0; p.muscle = a[22] || 0; p.hp = a[23] == null ? 1 : a[23];
     if (p.i !== myIdx) {
       p.scale = a[15]; p.r = HEAD_R * p.scale; p.landT = a[17]; p.legK = a[21] || targetLeg(p);
       if (a[5] >= 0) { if (p.kick.seq !== a[6] || p.kick.t < 0) { p.kick.seq = a[6]; p.kick.t = a[5]; } } else p.kick.t = -1;
@@ -3644,9 +3825,9 @@ function guestApplySnap(G, s, myIdx, onEvent) {
     if (e.id <= NetSync.lastHostEv) continue;
     NetSync.lastHostEv = e.id;
     if (e.k === 'reset') { NetSync.epoch = e.ep; for (const p of G.players) if (p.owned) placeAtStart(G, p); NetSync.ballErr = [0, 0]; NetSync.disp = []; }
-    if (e.k === 'knock') { const p = G.players[e.p]; if (p && p.owned && e.ep === NetSync.epoch) { p.vx = e.vx; p.vy = e.vy; p.ground = false; } }
+    if (e.k === 'knock' || e.k === 'bump') { const p = G.players[e.p]; if (p && p.owned && e.ep === NetSync.epoch) { p.vx = e.vx; p.vy = e.vy; p.ground = false; } }
     // own jumps, swings and supers were already shown here
-    if ((e.k === 'super' || e.k === 'swing') && G.players[e.p] && G.players[e.p].owned) continue;
+    if ((e.k === 'super' || e.k === 'swing' || e.k === 'flex') && G.players[e.p] && G.players[e.p].owned) continue;
     onEvent(e, true);
   }
   // a reset the events did not carry (or the first picture after joining mid-match)
@@ -3716,7 +3897,9 @@ function predictBounce(b, p) {
   const R = b.r || BALL_R;
   const cr = p.r * 0.52, y0 = p.y + p.r * 0.3, y1 = Math.max(y0, p.y + footOff(p) - cr);
   const qy = clamp(b.y, y0, y1);
-  for (const [cx, cy, rr, e] of [[p.x, qy, cr + R, 0.32], [p.x, p.y, p.r + R, 0.5]]) {
+  const parts = [[p.x, qy, cr + R, 0.32], [p.x, p.y, p.r + R, 0.5]];
+  if (p.muscle > 0) { const [fx, fy] = fistAt(p, -1); parts.push([fx, fy, FIST_R * p.r + R, 0.55]); }
+  for (const [cx, cy, rr, e] of parts) {
     const dx = b.x - cx, dy = b.y - cy, d2 = dx * dx + dy * dy;
     if (d2 >= rr * rr) continue;
     const d = Math.sqrt(d2) || 0.01, nx = dx / d, ny = dy / d;
@@ -3968,6 +4151,10 @@ function onEvent(e, remote) {
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
     case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'flex': if (P) { floatText(P.x, P.y - P.r - 50, 'ムキッ！', '#FFE1B0', 40, 1.0); ring(P.x, P.y, '#FFB07A', 30, 160, 0.45, 9); S('flex'); } break;
+    case 'punch': floatText(e.x, e.y - 40, 'ドン！', '#FFFFFF', 38, 0.7); puff(e.x, e.y, 10, '#FFE9A0', 360, 0, 7, 0.35, 'star'); ring(e.x, e.y, '#FFB07A', 14, 80, 0.3, 7); FX.shake = Math.max(FX.shake, 0.22); S('punch'); break;
+    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : 'ゴツッ', '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); } break;
+    case 'ko': if (P) { floatText(P.x, P.y - P.r - 60, 'ダウン！', '#FF8A8A', 42, 1.4); puff(P.x, P.y - P.r, 12, '#FFE14D', 300, 80, 9, 0.7, 'star'); FX.shake = Math.max(FX.shake, 0.3); S('ko'); } break;
     case 'slip': if (P) { floatText(e.x, e.y - 46, 'すりぬけ！', '#E6DDFF', 30, 0.9); puff(e.x, e.y, 10, '#D9CCFF', 220, 20, 7, 0.5); S('slip'); } break;
     case 'freeze': if (P) { puff(P.x, P.y, 14, '#DFF7FF', 300, 60, 8, 0.6, 'snow'); S('freeze'); } break;
     case 'knock': if (P) { puff(P.x, P.y - P.r, 6, '#FFE14D', 240, 60, 8, 0.5, 'star'); S('knock'); } break;
@@ -4809,7 +4996,7 @@ setInterval(() => { if (M.G && M.mode !== 'demo') renderNetbar(); else $('#netba
 
 // ---------- a newer version on the site: take it by itself ----------
 // phones keep an open page (and the site's page) for a long time, so look now and then and reload on the title screen
-var BUILD_ID = 'c168cfeb96';
+var BUILD_ID = '737955b238';
 var Updater = {
   busy: false, pending: false,
   safe() {

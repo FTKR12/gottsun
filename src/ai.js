@@ -160,6 +160,7 @@ function plan(G, p, c, lv) {
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
     else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'muscle') c.wantSuper = (d < 380 && front) || !!threat;
     else if (kind === 'stretch') c.wantSuper = !!threat || (ballOurHalf && d < 380) || (attackThird && d < 320);
     else if (kind === 'ramen') c.wantSuper = d < 520;
     else if (kind === 'wind') c.wantSuper = attackThird && (b.x - p.x) * dir > 0 && d < 500 || (!!threat && (b.x - p.x) * dir > -40);
@@ -300,6 +301,11 @@ function kickChance(G, p, c, lv) {
   const la = 0.05;
   const bx = b.x + b.vx * la, by = b.y + b.vy * la;
   const rel = (bx - p.x) * dir;
+  // ムキムキうで: punch it when it is in front of the fist
+  if (p.muscle > 0) {
+    const [qx, qy] = fistAt(p, -1), fr = FIST_R * p.r, ahead = (bx - qx) * dir;
+    if (ahead > -fr && ahead < p.r + R && Math.abs(by - qy) < fr + R + 6) return c.rng() < 0.8;
+  }
   // against the head: a header shot
   const hd = Math.hypot(bx - p.x, by - p.y);
   if (rel > -p.r * 0.4 && hd < (p.r + R + 10) * lv.kickRange && by < p.y + p.r * 0.2) return c.rng() < 0.7;

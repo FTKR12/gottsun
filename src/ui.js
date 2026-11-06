@@ -218,6 +218,10 @@ function onEvent(e, remote) {
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
     case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'flex': if (P) { floatText(P.x, P.y - P.r - 50, 'ムキッ！', '#FFE1B0', 40, 1.0); ring(P.x, P.y, '#FFB07A', 30, 160, 0.45, 9); S('flex'); } break;
+    case 'punch': floatText(e.x, e.y - 40, 'ドン！', '#FFFFFF', 38, 0.7); puff(e.x, e.y, 10, '#FFE9A0', 360, 0, 7, 0.35, 'star'); ring(e.x, e.y, '#FFB07A', 14, 80, 0.3, 7); FX.shake = Math.max(FX.shake, 0.22); S('punch'); break;
+    case 'hit': if (P) { floatText(e.x, e.y - 30, e.how === 'punch' ? 'バキッ！' : 'ゴツッ', '#FFFFFF', e.how === 'punch' ? 34 : 28, 0.6); puff(e.x, e.y, 6, '#FFE14D', 260, 40, 6, 0.35, 'star'); P.hitAt = G.t; S('hit', e.how === 'punch' ? 1 : 0); } break;
+    case 'ko': if (P) { floatText(P.x, P.y - P.r - 60, 'ダウン！', '#FF8A8A', 42, 1.4); puff(P.x, P.y - P.r, 12, '#FFE14D', 300, 80, 9, 0.7, 'star'); FX.shake = Math.max(FX.shake, 0.3); S('ko'); } break;
     case 'slip': if (P) { floatText(e.x, e.y - 46, 'すりぬけ！', '#E6DDFF', 30, 0.9); puff(e.x, e.y, 10, '#D9CCFF', 220, 20, 7, 0.5); S('slip'); } break;
     case 'freeze': if (P) { puff(P.x, P.y, 14, '#DFF7FF', 300, 60, 8, 0.6, 'snow'); S('freeze'); } break;
     case 'knock': if (P) { puff(P.x, P.y - P.r, 6, '#FFE14D', 240, 60, 8, 0.5, 'star'); S('knock'); } break;

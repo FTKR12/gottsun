@@ -38,7 +38,7 @@ function worldTransform(c, sx, sy) {
 }
 
 // ---------------- the stadium (drawn once per size into a canvas) ----------------
-const SPONSORS = ['ポヨン牛乳', 'ヘディング堂', 'でかあたまラーメン', 'ゴッツン飲料', 'スパイク商会', 'おでこ眼鏡店', 'ボヨヨン保険', 'かちわり氷'];
+const SPONSORS = ['むさしの森珈琲'];
 const BG = { cv: null, key: '', crowd: null };
 
 function stadiumCanvas(stKey) {
@@ -90,14 +90,14 @@ function drawStadium(c, S, stKey) {
   c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(x0, mid - 16, x1 - x0, 3);
   crowd(c, rnd, x0, x1, mid + 8, standBot - 4, S, 0.5);
   // banners hung on the railing
-  const banners = ['いけー！', 'あたまで！', 'ゴッツン！', 'まもれー！'];
+  const banners = ['らぴす', 'さちえ', 'いててて', 'やすお❤️'];
   banners.forEach((txt, i) => {
     const bx = 190 + i * 370, col = TEAM_COL[i < 2 ? 0 : 1];
     c.save(); c.translate(bx, mid - 34);
     c.fillStyle = i % 2 ? '#F4F6FA' : col.main;
     c.beginPath(); c.moveTo(0, 0); c.lineTo(170, 0); c.lineTo(165, 40); c.lineTo(5, 40); c.closePath(); c.fill();
     c.fillStyle = i % 2 ? col.main : '#FFFFFF';
-    c.font = `26px ${FONT_SIGN}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, 85, 21);
+    c.font = `26px ${FONT_SIGN}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, 85, 21, 156);
     c.restore();
   });
   // floodlight towers
@@ -113,13 +113,13 @@ function drawStadium(c, S, stKey) {
     }
   }
   // advertising boards, muted so the players stand out
-  const cols = ['#E9B93A', '#EEF1F6', '#C9433C', '#3B66C4', '#2C9A66', '#E07B3C', '#6E58B8', '#EEF1F6'];
+  const cols = ['#EEF1F6', '#2C7A52'];
   for (let i = Math.floor((x0 - 40) / 200); i * 200 < x1; i++) {
-    const k = ((i % 8) + 8) % 8, bx = i * 200, col = mix(cols[k], S.stand, S.light ? 0.3 : 0.12);
+    const k = ((i % cols.length) + cols.length) % cols.length, bx = i * 200, col = mix(cols[k], S.stand, S.light ? 0.3 : 0.12);
     c.fillStyle = col; c.fillRect(bx, ab, 200, ah);
     c.fillStyle = cols[k] === '#EEF1F6' || cols[k] === '#E9B93A' ? 'rgba(27,32,48,.85)' : 'rgba(255,255,255,.92)';
     c.font = `19px ${FONT_SIGN}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(SPONSORS[k], bx + 100, ab + ah / 2 + 1, 180);
+    c.fillText(SPONSORS[((i % SPONSORS.length) + SPONSORS.length) % SPONSORS.length], bx + 100, ab + ah / 2 + 1, 180);
     c.fillStyle = 'rgba(0,0,0,.22)'; c.fillRect(bx + 198, ab, 2, ah);
   }
   // the far side of the pitch, behind the players
@@ -301,6 +301,7 @@ function drawPlayer(c, p, G, t, opt) {
   const [fx, fy, fa] = footAt(p, kt);
   const kicking = kt >= 0;
   if (ch.limbs) drawLimbs(c, p, ch, G, t, fx, fy, kicking);
+  if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'back');
   if (!kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
   c.save();
   c.translate(p.x, p.y);
@@ -330,8 +331,12 @@ function drawPlayer(c, p, G, t, opt) {
   const ld = Math.hypot(lx, ly) || 1; lx /= ld; ly /= ld;
   const mood = moodOf(p, G, t);
   drawHead(c, ch, p, lw, t, lx, ly, mood);
+  // just got kicked: a red flash
+  const hf = 0.3 - (G.t - (p.hitAt == null ? -9 : p.hitAt));
+  if (hf > 0) { c.fillStyle = `rgba(255,70,70,${Math.min(0.55, hf * 1.8)})`; circ(c, 0, 0, 1); c.fill(); }
   c.restore();
   if (kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
+  if (p.muscle > 0) drawMuscleArm(c, p, ch, t, 'front');
   // frozen: an ice block over everything
   if (p.frz > 0) {
     const a = Math.min(1, p.frz * 3);
@@ -364,7 +369,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D', muscle: '#FF9A6B' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -379,6 +384,60 @@ function moodOf(p, G, t) {
   const bl = (t * 0.9 + p.i * 0.37) % 4;
   if (bl < 0.09) return 'blink';
   return 'calm';
+}
+
+// ムキムキうで (world space): the back arm flexing behind the head, the front one guarding or punching
+function drawMuscleArm(c, p, ch, t, part) {
+  const r = p.r, f = p.face, age = MUSCLE_T - p.muscle;
+  const g = clamp(Math.min(age / 0.25, p.muscle / 0.3), 0, 1);
+  if (g <= 0.02) return;
+  const flex = age < 0.8;
+  const X = (u, v) => [p.x + f * u * r, p.y + v * r];
+  let S, E, F;
+  if (part === 'back') {
+    S = X(-0.55, 0.62);
+    if (flex) { E = X(-1.62, 0.4); F = X(-1.56, -0.5); }
+    else { E = X(-1.48, 0.52); F = X(-1.4, -0.3 + Math.sin(t * 6) * 0.05); }
+  } else {
+    S = X(0.5, 0.68);
+    F = fistAt(p, p.kick.t);
+    if (flex) E = X(1.62, 0.42);
+    else {
+      const ext = clamp(((F[0] - p.x) * f / r - 1.26) / 0.95, 0, 1);   // the elbow straightens as it punches
+      E = X(1.12 + 0.28 * ext, 1.02 - 0.5 * ext);
+    }
+  }
+  const skin = part === 'back' ? mix(ch.skin, '#7A5040', 0.16) : ch.skin;
+  const w1 = 0.64 * r * g, w2 = 0.5 * r * g, fr = FIST_R * r * (0.6 + 0.4 * g);
+  const ux = E[0] - S[0], uy = E[1] - S[1], ul = Math.hypot(ux, uy) || 1;
+  let nx = -uy / ul, ny = ux / ul; if (ny > 0) { nx = -nx; ny = -ny; }
+  const pump = flex ? 1 + 0.1 * Math.sin(t * 20) : 1;
+  const bx = S[0] + ux * 0.52 + nx * w1 * 0.34, by = S[1] + uy * 0.52 + ny * w1 * 0.34, rot = Math.atan2(uy, ux);
+  const brx = ul * 0.42 * pump, bry = w1 * 0.72 * pump;
+  const seg = (A, B) => { c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(B[0], B[1]); c.stroke(); };
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  // outlines first, then the skin over them, so it reads as one arm
+  c.strokeStyle = OUT; c.fillStyle = OUT;
+  c.lineWidth = w1 + 5; seg(S, E);
+  c.lineWidth = w2 + 5; seg(E, F);
+  ell(c, bx, by, brx + 2.5, bry + 2.5, rot); c.fill();
+  circ(c, F[0], F[1], fr + 2.5); c.fill();
+  c.strokeStyle = skin; c.fillStyle = skin;
+  c.lineWidth = w1; seg(S, E);
+  c.lineWidth = w2; seg(E, F);
+  ell(c, bx, by, brx, bry, rot); c.fill();
+  circ(c, F[0], F[1], fr); c.fill();
+  // the muscle line, a shine and the knuckles
+  c.strokeStyle = 'rgba(130,70,50,.5)'; c.lineWidth = 2;
+  c.beginPath(); c.ellipse(bx - nx * bry * 0.15, by - ny * bry * 0.15, brx * 0.6, bry * 0.5, rot, Math.PI * 0.15, Math.PI * 0.85); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.45)'; ell(c, bx + nx * bry * 0.45 - ux / ul * brx * 0.2, by + ny * bry * 0.45 - uy / ul * brx * 0.2, brx * 0.32, bry * 0.16, rot); c.fill();
+  c.strokeStyle = 'rgba(130,70,50,.55)'; c.lineWidth = 1.8;
+  const kx = F[0] + f * fr * 0.45;
+  for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(kx, F[1] + k * fr * 0.36 - fr * 0.12); c.lineTo(kx + f * fr * 0.3, F[1] + k * fr * 0.36 - fr * 0.12); c.stroke(); }
+  if (flex) {
+    c.fillStyle = 'rgba(255,255,255,.9)';
+    starShape(c, bx + nx * bry * 1.4, by + ny * bry * 1.4, 7, 2.6, t * 4); c.fill();
+  }
 }
 
 // ゆうき: long arms in rolled-up white sleeves, one long leg, and an apron (world space)
@@ -979,9 +1038,17 @@ function drawTag(c, p, opt, t) {
   c.fillStyle = 'rgba(0,0,0,.35)'; rrect(c, p.x - gw / 2, y + 7, gw, 5, 2.5); c.fill();
   c.fillStyle = p.armed > 0 ? superColor(CHARS[p.char].sup) : full ? '#FFD740' : '#FFFFFF';
   rrect(c, p.x - gw / 2, y + 7, gw * (p.armed > 0 ? p.armed / SUPER_ARM_T : p.gauge), 5, 2.5); c.fill();
+  // health (only once it has been knocked about)
+  let my = 0;
+  if (p.hp < 0.995 || (p.hp <= 0 && p.stn > 0)) {
+    const hw = Math.max(46, w - 10), hy = y - 27, hp = clamp(p.hp, 0, 1);
+    rrect(c, p.x - hw / 2 - 2, hy - 2, hw + 4, 10, 5); c.fillStyle = 'rgba(16,22,40,.85)'; c.fill();
+    if (hp > 0) { rrect(c, p.x - hw / 2, hy, hw * hp, 6, 3); c.fillStyle = hp > 0.6 ? '#5BE37A' : hp > 0.3 ? '#FFD740' : '#FF5A5A'; c.fill(); }
+    my = 12;
+  }
   if (opt.me) {
     c.fillStyle = '#FFD740';
-    c.beginPath(); c.moveTo(p.x - 9, y - 26); c.lineTo(p.x + 9, y - 26); c.lineTo(p.x, y - 16); c.closePath(); c.fill(); c.lineWidth = 2; c.strokeStyle = OUT; c.stroke();
+    c.beginPath(); c.moveTo(p.x - 9, y - 26 - my); c.lineTo(p.x + 9, y - 26 - my); c.lineTo(p.x, y - 16 - my); c.closePath(); c.fill(); c.lineWidth = 2; c.strokeStyle = OUT; c.stroke();
   }
 }
 
