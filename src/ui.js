@@ -9,7 +9,8 @@ const SITE = 'https://ftkr12.github.io/gottsun/';
 // ---------- saved choices ----------
 const pref = (() => { try { return JSON.parse(localStorage.getItem('gottsun-pref') || '{}') || {}; } catch (e) { return {}; } })();
 function savePref() { try { localStorage.setItem('gottsun-pref', JSON.stringify(pref)); } catch (e) {} }
-const rules = Object.assign({ time: 90, items: true, stadium: 'auto', lv: 'normal', fill: true }, pref.rules || {});
+const rules = Object.assign({ mode: 'normal', time: 90, items: true, stadium: 'auto', lv: 'normal', fill: true }, pref.rules || {});
+if (!GAME_MODES[rules.mode]) rules.mode = 'normal';
 function saveRules() { pref.rules = rules; savePref(); }
 
 // ---------- screens ----------
@@ -218,6 +219,7 @@ function onEvent(e, remote) {
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
     case 'bolt': if (P) { bolt(P.x); FX.flash = 0.7; FX.flashCol = '#FFF8C0'; puff(P.x, P.y - P.r, 8, '#FFE14D', 260, 0, 7, 0.4, 'star'); S('bolt'); } break;
     case 'ramen': if (P) { floatText(P.x, P.y - P.r - 46, '🍜 元気！', '#FFE1B0', 30, 1.2); puff(P.x, P.y - P.r * 0.6, 10, '#FFFFFF', 120, 40, 10, 0.9, 'smoke'); puff(P.x, P.y, 8, '#FFB347', 260, 30, 6, 0.5, 'star'); S('ramen'); } break;
+    case 'event': { const evd = EVENTS[e.ek]; if (evd) { FX.banner = { text: evd.text, sub: 'イベント発生！', t: 0, max: 1.8, col: '#7A3FC2', dir: 1, size: 54 }; S('event'); } break; }
     case 'present': if (P) { floatText(P.x, P.y - P.r - 54, 'では、始めます。', '#CFE3FF', 32, 1.2); FX.flash = 0.35; FX.flashCol = '#DDEBFF'; S('present'); } break;
     case 'meteor': puff(e.x, e.y, 9, '#DFF4FF', 320, 80, 7, 0.45, 'star'); ring(e.x, e.y, 'rgba(160,220,255,.9)', 10, 70, 0.3, 6); S('meteor'); break;
     case 'cheers': if (P) { P._cheersT = G.t; floatText(P.x, P.y - P.r - 54, 'のめのめ〜！', '#FFE7A8', 40, 1.2); ring(P.x, P.y, '#F0A928', 30, 170, 0.45, 10); S('cheers'); } break;
@@ -233,7 +235,7 @@ function onEvent(e, remote) {
     case 'knock': if (P) { puff(P.x, P.y - P.r, 6, '#FFE14D', 240, 60, 8, 0.5, 'star'); S('knock'); } break;
     case 'poof': puff(e.x, e.y, 9, 'rgba(235,235,245,.85)', 120, 40, 14, 0.5, 'smoke'); S('poof'); break;
     case 'itemIn': S('itemIn'); break;
-    case 'item': if (P) { floatText(P.x, P.y - P.r - 40, ITEMS[e.k].icon + ' ' + ITEMS[e.k].name, '#FFFFFF', 30, 1.4); puff(P.x, P.y, 10, '#FFF3A0', 260, 40, 6, 0.5, 'star'); S('item'); } break;
+    case 'item': if (P) { floatText(P.x, P.y - P.r - 40, ITEMS[e.it].icon + ' ' + ITEMS[e.it].name, '#FFFFFF', 30, 1.4); puff(P.x, P.y, 10, '#FFF3A0', 260, 40, 6, 0.5, 'star'); S('item'); } break;
     case 'clash': floatText(e.x, e.y - 40, 'バチッ', '#FFE14D', 36, 0.7); puff(e.x, e.y, 8, '#FFF6C0', 300, 0, 5, 0.3); S('clash'); break;
     case 'swing': if (P && M.mine.includes(P.i)) S('swing'); break;
     case 'jump': if (P && M.mine.includes(P.i)) S('jump'); break;
@@ -383,7 +385,9 @@ function buildRules(root, opt) {
   opt = opt || {};
   const R = opt.get ? opt.get() : rules;
   const row = (label, key, vals) => `<div class="opt"><span class="opt-k">${label}</span><div class="seg" data-k="${key}">${vals.map(([v, t]) => `<button type="button" data-v="${v}" aria-pressed="${String(R[key]) === String(v)}"${opt.readonly ? ' disabled' : ''}>${t}</button>`).join('')}</div></div>`;
-  let html = row('試合時間', 'time', [[60, '60秒'], [90, '90秒'], [120, '2分'], [180, '3分']]);
+  let html = row('モード', 'mode', GAME_MODE_KEYS.map(k => [k, GAME_MODES[k].icon + ' ' + GAME_MODES[k].name]));
+  html += `<p class="mode-desc">${esc((GAME_MODES[R.mode] || GAME_MODES.normal).desc)}</p>`;
+  html += row('試合時間', 'time', [[60, '60秒'], [90, '90秒'], [120, '2分'], [180, '3分']]);
   html += row('アイテム', 'items', [[true, 'あり'], [false, 'なし']]);
   html += row('スタジアム', 'stadium', [['auto', 'おまかせ'], ['day', 'ひる'], ['sunset', 'ゆうがた'], ['night', 'よる']]);
   if (opt.cpu) html += row('CPUの強さ', 'lv', [['easy', 'よわい'], ['normal', 'ふつう'], ['hard', 'つよい']]);
@@ -400,11 +404,12 @@ function buildRules(root, opt) {
       tgt[k] = v;
       if (!opt.get) saveRules();
       for (const x of seg.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
+      if (k === 'mode') { const d = root.querySelector('.mode-desc'); if (d) d.textContent = (GAME_MODES[v] || GAME_MODES.normal).desc; }
       if (opt.change) opt.change();
     });
   }
 }
-function pickStadium(v) { return v === 'auto' || !STADIUMS[v] ? STADIUM_KEYS[(Math.random() * STADIUM_KEYS.length) | 0] : v; }
+function pickStadium(v, mode) { if (v === 'auto' && mode === 'moon') return 'night'; return v === 'auto' || !STADIUMS[v] ? STADIUM_KEYS[(Math.random() * STADIUM_KEYS.length) | 0] : v; }
 function seg(id, get, set) {
   const root = $(id);
   const mark = () => { for (const b of root.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.v === String(get()))); };
@@ -444,7 +449,7 @@ $('#solo-go').addEventListener('click', () => {
   if (solo.size === 2) players.push({ name: CHARS[others[2]].name, char: others[2], team: 0, ctrl: 'cpu' });
   players.push({ name: CHARS[others[0]].name, char: others[0], team: 1, ctrl: 'cpu' });
   if (solo.size === 2) players.push({ name: CHARS[others[1]].name, char: others[1], team: 1, ctrl: 'cpu' });
-  startMatch({ players, time: rules.time, items: rules.items, ot: true, stadium: pickStadium(rules.stadium), seed: (Math.random() * 1e9) | 0, lv: rules.lv }, 'solo');
+  startMatch({ players, mode: rules.mode, time: rules.time, items: rules.items, ot: true, stadium: pickStadium(rules.stadium, rules.mode), seed: (Math.random() * 1e9) | 0, lv: rules.lv }, 'solo');
 });
 
 // ---------- how to ----------
@@ -458,6 +463,7 @@ function openHowto() {
       li.insertAdjacentHTML('beforeend', `<b>${esc(ch.name)}（${esc(ch.type)}）　${sp.icon} ${esc(sp.name)}</b><span>${esc(ch.blurb)}。${esc(sp.desc)}</span>`);
       ul.appendChild(li);
     });
+    $('#how-modes').innerHTML = GAME_MODE_KEYS.map(k => `<li><b>${GAME_MODES[k].icon} ${esc(GAME_MODES[k].name)}</b>${esc(GAME_MODES[k].desc)}</li>`).join('');
     $('#how-items').innerHTML = ITEM_KEYS.map(k => `<li><b>${ITEMS[k].icon} ${esc(ITEMS[k].name)}</b>${esc(ITEMS[k].desc)}</li>`).join('');
   }
   show('howto');
@@ -571,7 +577,7 @@ function localGo() {
   for (const s of LL.slots) if (!s.cpu) pref.devChar[s.dev] = s.char;
   savePref();
   Sound.ensure();
-  startMatch({ players: localPlayers(), time: rules.time, items: rules.items, ot: true, stadium: pickStadium(rules.stadium), seed: (Math.random() * 1e9) | 0, lv: rules.lv }, 'local');
+  startMatch({ players: localPlayers(), mode: rules.mode, time: rules.time, items: rules.items, ot: true, stadium: pickStadium(rules.stadium, rules.mode), seed: (Math.random() * 1e9) | 0, lv: rules.lv }, 'local');
 }
 $('#local-go').addEventListener('click', () => { Sound.play('click'); localGo(); });
 
@@ -772,7 +778,7 @@ const Net = {
     if (this.invite) { this.invite.h = {}; this.invite.end(''); this.invite = null; }
     const R = this.lobbyRules;
     const players = again && M.setup ? M.setup.players : this.hostPlayers();
-    const setup = { players, time: R.time, items: R.items, ot: true, stadium: again && M.setup ? M.setup.stadium : pickStadium(R.stadium), seed: (Math.random() * 1e9) | 0, lv: R.lv };
+    const setup = { players, mode: R.mode || 'normal', time: R.time, items: R.items, ot: true, stadium: again && M.setup ? M.setup.stadium : pickStadium(R.stadium, R.mode), seed: (Math.random() * 1e9) | 0, lv: R.lv };
     pref.name = this.myName(); savePref();
     Sound.ensure();
     startMatch(setup, 'host');

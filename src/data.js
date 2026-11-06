@@ -8,7 +8,7 @@ const GAME_VER = 1;
 const NET_V = 2;
 
 // ---- the field, in world units (the canvas scales this to the screen) ----
-const W = 1600;            // wall to wall
+let W = 1600;              // wall to wall (wider in the ワイド mode)
 const H = 800;             // ceiling (y = 0) to the bottom of the picture
 const GROUND = 720;        // the grass line players stand on
 const GOAL_D = 112;        // depth of each goal: the goal line is x = GOAL_D / x = W - GOAL_D
@@ -120,6 +120,31 @@ const ITEMS = {
   float:     { icon: '🎈', name: 'ふわふわ',     desc: 'ボールがふわふわになる', t: 8 },
 };
 const ITEM_KEYS = Object.keys(ITEMS);
+
+// ---------- game modes ----------
+const GAME_MODES = {
+  normal:  { name: '通常',       icon: '⚽', desc: 'いつものゴッツンサッカー' },
+  easy:    { name: 'イージー',   icon: '🐢', desc: 'ボールがゆっくり。はじめての人や小さい子にも', ballSpeed: 0.74, ballGrav: 0.56 },
+  wide:    { name: 'ワイド',     icon: '🏟️', desc: 'フィールドが広い。走って、パスして、長いシュート', width: 2240 },
+  chaos:   { name: 'イベント',   icon: '🎉', desc: 'ボールがふえたり、巨大化したり、こおったり…。何かがどんどん起こる', events: true, itemRate: 2 },
+  moon:    { name: 'ムーン',     icon: '🌙', desc: '重力が弱くて、みんなふわっと高くとぶ', grav: 0.55, ballGrav: 0.5 },
+  bighead: { name: 'でかあたま', icon: '🍄', desc: 'みんなの頭がでっかい。ゴール前は大混雑', headMul: 1.32 },
+};
+const GAME_MODE_KEYS = Object.keys(GAME_MODES);
+// what can happen in the イベント mode
+const EVENTS = {
+  multi:   { text: '⚽⚽ ボールがふえた！' },
+  giant:   { text: '🏐 ボールが巨大化！' },
+  ice:     { text: '🧊 フィールドがこおった！' },
+  lowgrav: { text: '🌙 重力がよわくなった！' },
+  meteor:  { text: '☄️ 流星群がふってきた！' },
+  freeze:  { text: '❄️ だれかがこおった！' },
+  bighead: { text: '🍄 みんなでかあたま！' },
+  tiny:    { text: '🐜 みんなちびあたま！' },
+  biggoal: { text: '🥅 ゴールがでっかく！' },
+  wind:    { text: '🌀 大風がふいてきた！' },
+};
+const EVENT_POOL = ['multi', 'multi', 'giant', 'ice', 'lowgrav', 'meteor', 'freeze', 'bighead', 'tiny', 'biggoal', 'wind'];
 
 const STADIUMS = {
   day:    { name: 'ひる',   sky: ['#5DB8FF', '#BEE6FF'], grass: ['#53B848', '#47A63D'], stand: '#3B4A63', light: 0 },

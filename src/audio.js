@@ -122,6 +122,7 @@ const Sound = (() => {
     wind() { noise({ ft: 'bandpass', f: 300, f2: 1100, d: 1.6, v: 0.3, q: 0.5, a: 0.2 }); },
     dazzle() { for (let i = 0; i < 6; i++) tone({ f: 1400 + i * 380, d: 0.18, v: 0.06, at: i * 0.035, type: 'triangle' }); tone({ f: 300, f2: 2400, d: 0.35, v: 0.06, type: 'sine' }); },
     stretch() { tone({ f: 260, f2: 1300, d: 0.7, v: 0.12, type: 'sine', vib: 6, vibD: 25 }); tone({ f: 520, f2: 2000, d: 0.5, v: 0.05, type: 'triangle', at: 0.15 }); },
+    event() { for (const [f, at] of [[523, 0], [659, 0.08], [784, 0.16], [1047, 0.26]]) tone({ f, d: 0.2, v: 0.09, at, type: 'square' }); noise({ ft: 'bandpass', f: 1800, d: 0.4, v: 0.1, at: 0.1 }); },
     present() { noise({ ft: 'highpass', f: 3000, d: 0.04, v: 0.25 }); tone({ f: 880, d: 0.08, v: 0.1, type: 'square', at: 0.02 }); tone({ f: 330, f2: 1650, d: 0.6, v: 0.07, type: 'sine', at: 0.1 }); },
     meteor() { if (!rate('meteor', 0.07)) return; noise({ ft: 'lowpass', f: 1800, f2: 300, d: 0.3, v: 0.28 }); tone({ f: 1800, f2: 400, d: 0.18, v: 0.05, type: 'triangle' }); },
     cheers() { for (const [f, at] of [[2093, 0], [2637, 0.05], [3136, 0.1]]) tone({ f, d: 0.25, v: 0.07, at, type: 'triangle' }); tone({ f: 523, d: 0.2, v: 0.08, at: 0.2, type: 'square' }); tone({ f: 659, d: 0.3, v: 0.08, at: 0.32, type: 'square' }); },

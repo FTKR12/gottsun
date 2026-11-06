@@ -46,7 +46,7 @@ function aiInput(G, p) {
   }
   if (c.jumpHold > 0) { inp.j = 1; c.jumpHold -= DT; }
   // kick when the ball is (about to be) in front of the shoe
-  if (c.kickCool <= 0 && kickChance(G, p, c, lv)) {
+  if (c.kickCool <= 0 && (kickChance(G, p, c, lv) || G.extra.some(xb => kickChance(G, p, c, lv, xb)))) {
     inp.k = 1; c.kickCool = 0.22;
     // which shot: the direction held while pressing (+1 drive, 0 normal, -1 lob)
     const ownX = p.team === 0 ? GOAL_D : W - GOAL_D, oppX = p.team === 0 ? W - GOAL_D : GOAL_D, r = c.rng();
@@ -68,8 +68,8 @@ function aiInput(G, p) {
   return inp;
 }
 
-function jumpApex(p) {
-  const ch = CHARS[p.char], v = jmpOf(ch.jmp) * jumpMul(p), g = G_PLAYER * (ch.floaty || 1);
+function jumpApex(G, p) {
+  const ch = CHARS[p.char], v = jmpOf(ch.jmp) * jumpMul(p) * (p.drunk > 0 ? 0.86 : 1), g = playerGrav(G, p);
   return { v, g, h: v * v / (2 * g) };
 }
 // seconds for a jump to lift the head by h (or -1 if it cannot)
@@ -98,13 +98,14 @@ function plan(G, p, c, lv) {
       if (c.rng() < lv.fooled) c.follow = G.fakes[Math.floor(c.rng() * G.fakes.length)].id;
     }
   }
-  const b = c.ball = seenBall(G, c), dir = p.face;
+  let b = c.ball = seenBall(G, c);
+  const dir = p.face;
   const ownX = p.team === 0 ? GOAL_D : W - GOAL_D;
   const mates = G.players.filter(q => q.team === p.team && q !== p);
   const foes = G.players.filter(q => q.team !== p.team);
   const sp = spdOf(CHARS[p.char].spd) * speedMul(p);
-  const J = jumpApex(p), sy = standY(p);
-  const pts = predictBall(G, b, 2.0, 1 / 60, c.pts);
+  const J = jumpApex(G, p), sy = standY(p);
+  let pts = predictBall(G, b, 2.0, 1 / 60, c.pts);
   c.aimErr = (c.rng() - 0.5) * 2 * lv.err;
   // the see-through ball is hard to read
   if (G.ball.mode === 'ghost' && G.ball.modeTeam !== p.team) { c.aimErr = (c.rng() - 0.5) * 2 * (lv.err * 2 + 70); c.t += 0.06; }
@@ -119,10 +120,19 @@ function plan(G, p, c, lv) {
     }
   } else c.role = 'solo';
   // ---- the ball's way to our goal ----
-  let threat = null;
-  for (const q of pts) {
-    if ((q.x - ownX) * dir < 0 && q.y > GROUND - G.goalH[p.team === 0 ? 0 : 1] - G.ball.r) { threat = q; break; }
-    if (q.t > 1.8) break;
+  const threatOf = path => {
+    for (const q of path) {
+      if ((q.x - ownX) * dir < 0 && q.y > GROUND - G.goalH[p.team === 0 ? 0 : 1] - G.ball.r) return q;
+      if (q.t > 1.8) break;
+    }
+    return null;
+  };
+  let threat = threatOf(pts);
+  // more balls (イベント): one on its way into our goal sooner is the one to deal with
+  for (const xb of G.extra) {
+    const xp = predictBall(G, xb, 1.8, 1 / 60, c.xpts || (c.xpts = []));
+    const xt = threatOf(xp);
+    if (xt && (!threat || xt.t < threat.t)) { threat = xt; b = c.ball = xb; pts = xp.slice(); }
   }
   const ballOurHalf = (b.x - W / 2) * dir < 0;
   let role = c.role;
@@ -173,7 +183,7 @@ function plan(G, p, c, lv) {
 
 // when can q first get to a ball it can play (standing behind it), along the predicted path
 function interceptTime(G, q, pts) {
-  const sp = spdOf(CHARS[q.char].spd) * speedMul(q), J = jumpApex(q), sy = standY(q);
+  const sp = spdOf(CHARS[q.char].spd) * speedMul(q), J = jumpApex(G, q), sy = standY(q);
   const top = sy - q.r - J.h * 0.9;
   for (const pt of pts) {
     if (pt.y < top) continue;
@@ -292,8 +302,8 @@ function planDefend(G, p, c, lv, pts, threat, ownX, sp, J, sy) {
   c.tx = clamp(c.tx, p.r, W - p.r);
 }
 
-function kickChance(G, p, c, lv) {
-  const b = seenBall(G, c);
+function kickChance(G, p, c, lv, ball) {
+  const b = ball || seenBall(G, c);
   if (b.held || p.frz > 0 || p.stn > 0) return false;
   // the see-through ball of the other side: only sometimes do we spot it in time to kick it
   if (b === G.ball && b.mode === 'ghost' && b.modeT > 0 && b.modeTeam !== p.team) {

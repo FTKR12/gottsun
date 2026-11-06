@@ -43,7 +43,7 @@ const SPONSORS = ['むさしの森珈琲'];
 const BG = { cv: null, key: '', crowd: null };
 
 function stadiumCanvas(stKey) {
-  const key = [stKey, V.cw, V.ch, V.dpr, V.s.toFixed(4), V.oy.toFixed(1)].join('|');
+  const key = [stKey, W, V.cw, V.ch, V.dpr, V.s.toFixed(4), V.oy.toFixed(1)].join('|');
   if (BG.key === key && BG.cv) return BG.cv;
   const cv = BG.cv || (BG.cv = document.createElement('canvas'));
   cv.width = Math.max(1, Math.round(V.cw * V.dpr)); cv.height = Math.max(1, Math.round(V.ch * V.dpr));
@@ -93,7 +93,7 @@ function drawStadium(c, S, stKey) {
   // banners hung on the railing
   const banners = ['らぴす', 'さちえ', 'いててて', 'やすお❤️'];
   banners.forEach((txt, i) => {
-    const bx = 190 + i * 370, col = TEAM_COL[i < 2 ? 0 : 1];
+    const bx = W * 0.119 + i * W * 0.231, col = TEAM_COL[i < 2 ? 0 : 1];
     c.save(); c.translate(bx, mid - 34);
     c.fillStyle = i % 2 ? '#F4F6FA' : col.main;
     c.beginPath(); c.moveTo(0, 0); c.lineTo(170, 0); c.lineTo(165, 40); c.lineTo(5, 40); c.closePath(); c.fill();
@@ -454,6 +454,26 @@ function drawSlides(c, G, p, t) {
   }
   c.font = `800 ${Math.round(18 * k)}px ${FONT_UI}`; c.fillStyle = '#8A93AD'; c.textAlign = 'right'; c.fillText(`${page + 1} / 3`, x0 + w - 16 * k, y0 + h - 18 * k);
   c.restore();
+}
+// the イベント mode's frozen pitch
+function drawIce(c, G, t) {
+  const k = Math.min(1, G.iceT / 0.6, (8 - G.iceT) / 0.4);
+  c.save(); c.globalAlpha = 0.5 * k;
+  const g = c.createLinearGradient(0, GROUND - 40, 0, V.y1);
+  g.addColorStop(0, 'rgba(220,245,255,.9)'); g.addColorStop(1, 'rgba(150,210,255,.7)');
+  c.fillStyle = g; c.fillRect(V.x0, GROUND - 6, V.x1 - V.x0, V.y1 - GROUND + 6);
+  c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 3;
+  for (let i = 0; i < 14; i++) { const x = (i * 173 + 40) % W, y = GROUND + 14 + (i * 37) % 60; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 46, y - 4); c.stroke(); }
+  c.restore();
+  if (Math.random() < 0.3) puff(V.x0 + Math.random() * (V.x1 - V.x0), GROUND + 4, 1, '#FFFFFF', 30, 40, 4, 0.5, 'star');
+}
+// low gravity: little lights drifting up
+function drawFloaties(c, G, t) {
+  c.fillStyle = 'rgba(255,255,240,.55)';
+  for (let i = 0; i < 26; i++) {
+    const x = (i * 257 + 90) % W, y = GROUND - ((t * (24 + (i % 5) * 9) + i * 61) % (GROUND - 60));
+    circ(c, x + Math.sin(t * 1.3 + i) * 14, y, 2 + (i % 3)); c.fill();
+  }
 }
 function drawMeteors(c, G, t) {
   for (const m of G.meteors) {
@@ -1505,6 +1525,12 @@ function drawHUD(c, G, t) {
   c.fillStyle = low ? (Math.floor(t * 4) % 2 ? '#FF6B6B' : '#FFFFFF') : '#FFE36B';
   c.fillText(clk, cx, y + h / 2 + 1);
   if (G.ot) { c.font = `16px ${FONT_UI}`; c.fillStyle = '#FFFFFF'; c.fillText(fmtClock(G.clock), cx, y + h - 12); }
+  const md = GAME_MODES[G.setup && G.setup.mode];
+  if (md && G.setup.mode !== 'normal') {
+    c.font = `800 18px ${FONT_UI}`; const label = md.icon + ' ' + md.name + 'モード', lw2 = c.measureText(label).width + 26;
+    rrect(c, cx - lw2 / 2, y + h + 6, lw2, 28, 14); c.fillStyle = 'rgba(16,22,40,.75)'; c.fill();
+    c.fillStyle = '#FFFFFF'; c.fillText(label, cx, y + h + 21);
+  }
   c.restore();
 }
 
@@ -1582,11 +1608,14 @@ function drawMatch(c, G, t, tags, opts) {
   if (FX.shake > 0) { sx = (Math.random() - 0.5) * FX.shake * 24; sy = (Math.random() - 0.5) * FX.shake * 24; }
   worldTransform(c, sx, sy);
   drawGoalBack(c, G);
+  if (G.iceT > 0) drawIce(c, G, t);
+  if (G.lowGravT > 0 || (G.rules && G.rules.grav < 1)) drawFloaties(c, G, t);
   for (const p of G.players) if (p.present > 0) drawSlides(c, G, p, t);
   drawItems(c, G, t);
   for (const p of G.players) drawPlayer(c, p, G, t, tags ? tags[p.i] : null);
   drawFakes(c, G);
   drawBall(c, G.ball, t);
+  for (const xb of G.extra) drawBall(c, xb, t);
   drawMeteors(c, G, t);
   drawGoalFront(c, G);
   fxDraw(c);

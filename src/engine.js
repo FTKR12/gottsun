@@ -11,14 +11,17 @@ const TOP_A = 2.05;         // shoe angle at the top of a kick
 
 function newMatch(setup) {
   const seed = setup.seed || ((Math.random() * 1e9) | 0);
+  const rules = Object.assign({ ballSpeed: 1, ballGrav: 1, grav: 1, width: 1600, headMul: 1, events: false, itemRate: 1 }, GAME_MODES[setup.mode] || {});
+  W = rules.width;
   const G = {
-    setup, seed, rng: mkRng(seed), t: 0, tick: 0,
+    setup, seed, rules, rng: mkRng(seed), t: 0, tick: 0,
     phase: 'countdown', phaseT: 0,
     clock: setup.time || 90, ot: false, result: null,
     score: [0, 0], players: [], ball: null, fakes: [], items: [], meteors: [], meteorSeq: 0,
     itemT: 9, itemSeq: 0, fakeSeq: 0,
     goalH: [GOAL_H, GOAL_H], goalFx: [{ k: '', t: 0 }, { k: '', t: 0 }], floatT: 0, bigBallT: 0,
     wind: { team: -1, t: 0 },
+    extra: [], extraSeq: 0, eventT: 6, lastEvent: '', iceT: 0, lowGravT: 0, rainT: 0, rainAcc: 0,
     evs: [], evSeq: 0, epoch: 0, lastGoal: null, idleT: 0, barT: 0,
     goalsLog: [],
   };
@@ -26,12 +29,11 @@ function newMatch(setup) {
   setup.players.forEach((sp, i) => {
     const team = sp.team ? 1 : 0;
     const p = mkPlayer(i, sp, team, per[team]++);
+    p.headMul = rules.headMul;
     G.players.push(p);
   });
   G.teamSize = per;
-  G.ball = { x: W / 2, y: 210, vx: 0, vy: 0, r: BALL_R, rot: 0, av: 0, scrum: 0, scrumX: 0, mode: '', modeT: 0, modeTeam: -1, pierce: 0, hitMask: 0, ghostP: -1,
-             last: -1, lastTeam: -1, touchT: -9, restT: 0, held: true, prevX: W / 2, prevY: 210,
-             teamLast: [-1, -1], teamLastT: [-9, -9], launchT: -9, kickT: -9, kickTeam: -1, kickVx: 0, kickVy: 0 };
+  G.ball = newBall(W / 2, 210);
   resetPositions(G, true);
   ev(G, 'whistle', { n: 0 });
   return G;
@@ -52,6 +54,16 @@ function mkPlayer(i, sp, team, slot) {
     cpu: null, away: false,
   };
 }
+
+function newBall(x, y) {
+  return { x, y, vx: 0, vy: 0, r: BALL_R, rot: 0, av: 0, scrum: 0, scrumX: 0, mode: '', modeT: 0, modeTeam: -1, pierce: 0, hitMask: 0, ghostP: -1,
+           last: -1, lastTeam: -1, touchT: -9, restT: 0, held: true, prevX: x, prevY: y,
+           teamLast: [-1, -1], teamLastT: [-9, -9], launchT: -9, kickT: -9, kickTeam: -1, kickVx: 0, kickVy: 0, heatT: 0 };
+}
+// gravity for players and for the ball, with the mode and the events
+function gravK(G) { return (G.rules ? G.rules.grav : 1) * (G.lowGravT > 0 ? 0.55 : 1); }
+function playerGrav(G, p) { return G_PLAYER * (CHARS[p.char].floaty || 1) * gravK(G); }
+function ballSpeedK(G) { return G.rules ? G.rules.ballSpeed : 1; }
 
 function ev(G, k, o) {
   const e = Object.assign({ id: ++G.evSeq, k, t: G.t }, o || {});
@@ -111,11 +123,11 @@ function fistAt(p, kt) {
   return [p.x + p.face * r * (1.26 + 0.95 * e), p.y + r * (0.36 - 0.1 * e)];
 }
 function targetScale(p) {
-  let s = CHARS[p.char].size || 1;
+  let s = (CHARS[p.char].size || 1) * (p.headMul || 1);
   if (p.big > 0) s *= 1.45;
   if (p.giant > 0) s *= 1.6;
   if (p.tiny > 0) s *= 0.64;
-  return clamp(s, 0.48, 2.3);
+  return clamp(s, 0.48, 2.6);
 }
 // the crossbar moves (でかゴール / ちびゴール). A ball resting above the old crossbar, behind the
 // goal line, is lifted onto the new one instead of suddenly being inside the goal
@@ -133,7 +145,7 @@ function setGoalH(G, side, h) {
   lift(G.ball);
   for (const f of G.fakes) lift(f);
 }
-function setBallR(G, r) { G.ball.r = r; for (const f of G.fakes) f.r = r; }
+function setBallR(G, r) { G.ball.r = r; for (const f of G.fakes) f.r = r; for (const xb of G.extra) xb.r = r; }
 function startX(G, p) {
   const n = G.teamSize[p.team];
   const xs = n <= 1 ? [470] : n === 2 ? [560, 300] : n === 3 ? [620, 440, 260] : [640, 500, 360, 230];
@@ -153,7 +165,7 @@ function resetPositions(G, first) {
   b.x = W / 2; b.y = 200; b.vx = 0; b.vy = 0; b.av = 0; b.mode = ''; b.modeT = 0; b.held = true; b.restT = 0;
   b.last = -1; b.lastTeam = -1; b.prevX = b.x; b.prevY = b.y;
   b.teamLast = [-1, -1]; b.teamLastT = [-9, -9];
-  G.fakes.length = 0; G.meteors.length = 0;
+  G.fakes.length = 0; G.meteors.length = 0; G.extra.length = 0; G.rainT = 0;
   G.wind.t = 0;
   if (!first) ev(G, 'reset', { ep: G.epoch });
 }
@@ -194,6 +206,10 @@ function step(G, inputs) {
     if (fx.t > 0) { fx.t -= DT; if (fx.t <= 0) { fx.t = 0; fx.k = ''; setGoalH(G, side, GOAL_H); } }
   }
   if (G.ball.heatT > 0) G.ball.heatT -= DT;
+  if (G.iceT > 0) G.iceT -= DT;
+  if (G.lowGravT > 0) G.lowGravT -= DT;
+  if (G.phase === 'play') stepEvents(G, DT);
+  stepExtra(G, DT);
   if (G.bigBallT > 0) { G.bigBallT -= DT; if (G.bigBallT <= 0) { G.bigBallT = 0; setBallR(G, BALL_R); } }
 }
 
@@ -284,7 +300,8 @@ function stepPlayer(G, p, inp, dt) {
     if (p.drunk > 0 && !off) want = want * 0.75 + Math.sin(G.t * 2.6 + p.i * 1.7) * 230 + Math.sin(G.t * 6.3 + p.i) * 80;
     // the wind pushes the other team back toward their own goal
     if (G.wind.t > 0 && p.team !== G.wind.team) want += (G.wind.team === 0 ? 1 : -1) * 300;
-    const acc = p.ground ? (mx ? 5600 : 6200) : (mx ? 3300 : 900);
+    let acc = p.ground ? (mx ? 5600 : 6200) : (mx ? 3300 : 900);
+    if (G.iceT > 0 && p.ground) acc = mx ? 1300 : 260;          // a frozen pitch: slippery
     p.vx += clamp(want - p.vx, -acc * dt, acc * dt);
   }
   // jump (a short buffer, and a moment of grace after walking off a ledge)
@@ -296,7 +313,7 @@ function stepPlayer(G, p, inp, dt) {
       ev(G, 'jump', { p: p.i });
     } else p.jumpBuf -= dt;
   }
-  let g = G_PLAYER * (ch.floaty || 1);
+  let g = playerGrav(G, p);
   if (p.vy < 0 && !(inp && inp.j && !off)) g *= 1.75;
   const wasGround = p.ground;
   p.vy += g * dt;
@@ -423,22 +440,22 @@ function superShot(G, p) {
   const [tx, ty] = goalTarget(G, p.team);
   b.modeTeam = p.team; b.hitMask = 0; b.pierce = 0; b.ghostP = -1; b.launchT = G.t;
   if (kind === 'fire') {
-    aimBall(b, tx, ty, 1850);
+    aimBall(b, tx, ty, 1850 * ballSpeedK(G));
     b.mode = 'fire'; b.modeT = 1.05; b.pierce = 1;
   } else if (kind === 'ice') {
-    forwardish(b, p.face, 1.15, 950);
+    forwardish(b, p.face, 1.15, 950 * ballSpeedK(G));
     b.mode = 'ice'; b.modeT = 3.2;
   } else if (kind === 'ghost') {
-    forwardish(b, p.face, 1.08, 900);
+    forwardish(b, p.face, 1.08, 900 * ballSpeedK(G));
     b.mode = 'ghost'; b.modeT = 2.7;
   } else if (kind === 'rocket') {
-    const sp = 1350, d = Math.hypot(b.vx, b.vy) || 1;
+    const sp = 1350 * ballSpeedK(G), d = Math.hypot(b.vx, b.vy) || 1;
     let vx = b.vx / d, vy = b.vy / d;
     if (vx * p.face < 0.2) { vx = p.face * 0.6; vy = -0.8; }
     b.vx = vx * sp; b.vy = vy * sp;
     b.mode = 'rocket'; b.modeT = 1.7;
   } else if (kind === 'clone') {
-    forwardish(b, p.face, 1.05, 850);
+    forwardish(b, p.face, 1.05, 850 * ballSpeedK(G));
     const sp = Math.hypot(b.vx, b.vy), ang = Math.atan2(b.vy, b.vx);
     const angs = [ang - 0.27, ang + 0.27];
     const real = Math.floor(G.rng() * 3);   // which of the three paths the real ball takes
@@ -465,10 +482,14 @@ function forwardish(b, face, mul, minSp) {
 }
 
 // ---------- the ball ----------
-function ballGravity(G) { return G_BALL * (G.floatT > 0 ? 0.42 : 1); }
+function ballGravity(G) { return G_BALL * (G.floatT > 0 ? 0.42 : 1) * (G.rules ? G.rules.ballGrav : 1) * (G.lowGravT > 0 ? 0.5 : 1); }
 
 function ballSub(G, dt, s) {
-  const b = G.ball;
+  ballSubFor(G, G.ball, dt, s);
+  for (let i = G.extra.length - 1; i >= 0; i--) if (G.extra[i]) ballSubFor(G, G.extra[i], dt, s);
+}
+function ballSubFor(G, b, dt, s) {
+  const main = b === G.ball;
   b.prevX = b.x; b.prevY = b.y;
   const noGrav = (b.mode === 'fire' || b.mode === 'rocket') && b.modeT > 0;
   if (!noGrav) b.vy += ballGravity(G) * dt;
@@ -481,23 +502,23 @@ function ballSub(G, dt, s) {
     const [tx, ty] = goalTarget(G, b.modeTeam);
     const want = Math.atan2(ty - b.y, tx - b.x), cur = Math.atan2(b.vy, b.vx);
     let d = want - cur; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
-    const a = cur + clamp(d, -3.4 * dt, 3.4 * dt), sp = 1350;
+    const a = cur + clamp(d, -3.4 * dt, 3.4 * dt), sp = 1350 * ballSpeedK(G);
     b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp;
   }
   b.vx *= 1 - 0.1 * dt;
   b.x += b.vx * dt; b.y += b.vy * dt;
-  if (b.modeT > 0) { b.modeT -= dt; if (b.modeT <= 0) endMode(G); }
+  if (main && b.modeT > 0) { b.modeT -= dt; if (b.modeT <= 0) endMode(G); }
   // the world
   const hit = ballStatics(G, b, dt, true);
-  if (hit && (b.mode === 'fire' || b.mode === 'rocket')) endMode(G);
+  if (main && hit && (b.mode === 'fire' || b.mode === 'rocket')) endMode(G);
   // players
   for (const p of G.players) ballVsPlayer(G, b, p, dt, s);
   // speed limit
   const sp = Math.hypot(b.vx, b.vy);
-  const max = b.mode === 'fire' ? 2000 : BALL_MAX;
+  const max = (b.mode === 'fire' ? 2000 : BALL_MAX) * ballSpeedK(G);
   if (sp > max) { b.vx *= max / sp; b.vy *= max / sp; }
   b.rot += b.av * dt;
-  if (G.phase === 'play' || G.phase === 'goal') goalCheck(G);
+  if (G.phase === 'play' || G.phase === 'goal') goalCheck(G, b);
 }
 function endMode(G) {
   const b = G.ball;
@@ -516,7 +537,7 @@ function ballStatics(G, b, dt, loud) {
       b.vy = v < 70 ? 0 : -v * 0.66;
       b.vx *= 0.97;
     }
-    b.vx *= Math.exp(-0.55 * dt);
+    b.vx *= Math.exp(-(G.iceT > 0 ? 0.08 : 0.55) * dt);
     b.av = b.vx / R;
   }
   if (b.y - R < 0) { b.y = R; if (b.vy < 0) { hard = Math.max(hard, -b.vy); b.vy = -b.vy * 0.6; } }
@@ -604,11 +625,11 @@ function ballVsPlayer(G, b, p, dt, s) {
         // a header sends it forward
         if (!p.ground && ny < 0.3) { b.vx += p.face * 120; b.vy -= 40; }
         else if (ny < -0.2) b.vx += p.face * 50;
-        const hs = Math.hypot(b.vx, b.vy), cap = 1120 * (p.scale > 1.2 ? 1.1 : 1);
+        const hs = Math.hypot(b.vx, b.vy), cap = 1120 * (p.scale > 1.2 ? 1.1 : 1) * ballSpeedK(G);
         if (hs > cap && !b.mode) { b.vx *= cap / hs; b.vy *= cap / hs; }
         // まっかっかヘッド: the red-hot head sends it off forward like a rocket
         if (p.hot > 0 && !b.mode) {
-          const a = 0.16 + clamp(-ny, -0.4, 1) * 0.34 + (G.rng() - 0.5) * 0.08, hsp = 1420;
+          const a = 0.16 + clamp(-ny, -0.4, 1) * 0.34 + (G.rng() - 0.5) * 0.08, hsp = 1420 * ballSpeedK(G);
           b.vx = p.face * Math.cos(a) * hsp; b.vy = -Math.sin(a) * hsp;
           b.heatT = 0.8;
           if (G.t - (p.sizzleT || -9) > 0.15) { p.sizzleT = G.t; ev(G, 'sizzle', { p: p.i, x: b.x | 0, y: b.y | 0 }); }
@@ -659,12 +680,12 @@ function kickBall(G, b, p, head) {
   b.scrum = near ? b.scrum + 1 : 0; b.scrumX = b.x;
   if (b.scrum >= 3) { a = 0.95 + G.rng() * 0.4; b.scrum = 0; }
   const sp = kckOf(ch.kck) * spMul * (head ? (p.hot > 0 ? 1.18 : 0.92) : 1) * (p.big > 0 || p.giant > 0 ? 1.06 : 1) * (p.tiny > 0 ? 0.9 : 1) * (p.pow > 0 ? 1.15 : 1) * (0.96 + G.rng() * 0.08);
-  b.vx = p.face * Math.cos(a) * sp + p.vx * 0.25;
-  b.vy = -Math.sin(a) * sp + Math.min(0, p.vy) * (head ? 0.2 : 0.1);
+  b.vx = p.face * Math.cos(a) * sp * ballSpeedK(G) + p.vx * 0.25;
+  b.vy = -Math.sin(a) * sp * ballSpeedK(G) + Math.min(0, p.vy) * (head ? 0.2 : 0.1);
   b.av = -p.face * 14;
   // two players of opposite sides kicking it at the same moment: it flies off, mostly upward
   if (G.t - b.kickT < 0.1 && b.kickTeam !== p.team) {
-    const ang = -Math.PI / 2 + (G.rng() - 0.5) * 1.7, csp = 720 + G.rng() * 420;
+    const ang = -Math.PI / 2 + (G.rng() - 0.5) * 1.7, csp = (720 + G.rng() * 420) * ballSpeedK(G);
     b.vx = Math.cos(ang) * csp; b.vy = Math.sin(ang) * csp;
     ev(G, 'clash', { x: b.x | 0, y: b.y | 0 });
   }
@@ -690,7 +711,7 @@ function punchBall(G, b, p) {
   const dir = p.kick.dir || 0;
   let a = dir < 0 ? 0.8 : dir > 0 ? 0.04 : 0.22;
   a += (G.rng() - 0.5) * 0.06;
-  const sp = kckOf(CHARS[p.char].kck) * 1.16 * (p.pow > 0 ? 1.15 : 1) * (0.97 + G.rng() * 0.06);
+  const sp = kckOf(CHARS[p.char].kck) * 1.16 * (p.pow > 0 ? 1.15 : 1) * (0.97 + G.rng() * 0.06) * ballSpeedK(G);
   b.vx = p.face * Math.cos(a) * sp + p.vx * 0.2; b.vy = -Math.sin(a) * sp;
   b.av = -p.face * 18;
   b.kickT = G.t; b.kickTeam = p.team; b.kickVx = b.vx; b.kickVy = b.vy;
@@ -734,20 +755,22 @@ function touchesPlayer(q, x, y, rad) {
   return dx * dx + dy * dy < rr * rr;
 }
 function hurt(G, p, q, how, x, y) {
-  let dmg = 0.2 + 0.02 * CHARS[p.char].kck;          // four or five kicks
+  let dmg;
   if (how === 'burn') dmg = 0.15;
   else if (how === 'meteor') dmg = 0.16;
-  else if (how === 'punch') dmg *= 1.8;
-  else if (p.muscle > 0) dmg *= 1.3;
-  if (p.pow > 0) dmg *= 1.2;
-  if (p.big > 0 || p.giant > 0) dmg *= 1.2;
+  else {
+    dmg = 0.2 + 0.02 * CHARS[p.char].kck;          // four or five kicks
+    if (how === 'punch') dmg *= 1.8; else if (p.muscle > 0) dmg *= 1.3;
+    if (p.pow > 0) dmg *= 1.2;
+    if (p.big > 0 || p.giant > 0) dmg *= 1.2;
+  }
   q.hp = Math.max(0, q.hp - dmg); q.hurtT = G.t;
-  const dir = Math.sign(q.x - p.x) || p.face;
-  ev(G, 'hit', { p: q.i, by: p.i, x: x | 0, y: y | 0, how, hp: Math.round(q.hp * 100) / 100 });
+  const dir = how === 'meteor' ? (Math.sign(q.x - x) || 1) : (Math.sign(q.x - p.x) || p.face);
+  ev(G, 'hit', { p: q.i, by: p ? p.i : -1, x: x | 0, y: y | 0, how, hp: Math.round(q.hp * 100) / 100 });
   if (q.hp <= 0) {
     q.stn = Math.max(q.stn, HIT_STUN); q.armed = 0;
     bump(G, q, dir, 520, -380);
-    ev(G, 'ko', { p: q.i, by: p.i });
+    ev(G, 'ko', { p: q.i, by: p ? p.i : -1 });
   } else if (how === 'punch') bump(G, q, dir, 460, -300);
   else if (how === 'burn') bump(G, q, dir, 420, -280);
   else if (how === 'meteor') bump(G, q, dir, 300, -300);
@@ -771,19 +794,72 @@ function stepMeteors(G, dt) {
       G.meteors.push({ id: ++G.meteorSeq, x: tx - vx * tt, y: -40, vx, vy, team: p.team, by: p.i });
     }
   }
+  // the event's shower falls anywhere, on anyone
+  if (G.rainT > 0) {
+    G.rainT -= dt; G.rainAcc += dt;
+    while (G.rainAcc >= 0.17) {
+      G.rainAcc -= 0.17;
+      const tx = 60 + G.rng() * (W - 120), dir = G.rng() < 0.5 ? -1 : 1;
+      const sp = 950 + G.rng() * 250, ang = 1.15 + G.rng() * 0.15, vx = dir * Math.cos(ang) * sp, vy = Math.sin(ang) * sp, tt = (GROUND + 40) / vy;
+      G.meteors.push({ id: ++G.meteorSeq, x: tx - vx * tt, y: -40, vx, vy, team: -1, by: -1 });
+    }
+  }
   for (let i = G.meteors.length - 1; i >= 0; i--) {
     const m = G.meteors[i];
     m.x += m.vx * dt; m.y += m.vy * dt;
     let boom = m.y >= GROUND - 8;
     if (!boom) for (const q of G.players) if (q.team !== m.team && touchesPlayer(q, m.x, m.y, 16)) { boom = true; break; }
     if (!boom) continue;
-    const by = G.players[m.by] || G.players[0];
+    const by = G.players[m.by] || null;
     for (const q of G.players) {
       if (q.team === m.team || q.stn > 0 || G.t - q.meteorT < 0.45) continue;
       if (touchesPlayer(q, m.x, m.y, 44)) { q.meteorT = G.t; hurt(G, by, q, 'meteor', m.x, m.y); }
     }
     ev(G, 'meteor', { x: m.x | 0, y: Math.min(m.y, GROUND - 8) | 0 });
     G.meteors.splice(i, 1);
+  }
+}
+
+// ---------- the イベント mode: something happens every so often ----------
+function stepEvents(G, dt) {
+  if (!G.rules.events) return;
+  G.eventT -= dt;
+  if (G.eventT > 0) return;
+  G.eventT = 8 + G.rng() * 4;
+  let k = EVENT_POOL[Math.floor(G.rng() * EVENT_POOL.length)];
+  if (k === G.lastEvent) k = EVENT_POOL[Math.floor(G.rng() * EVENT_POOL.length)];
+  G.lastEvent = k;
+  applyEvent(G, k);
+  ev(G, 'event', { ek: k });
+}
+function applyEvent(G, k) {
+  if (k === 'multi') { for (const dx of [-240, 240]) spawnExtraBall(G, W / 2 + dx); }
+  else if (k === 'giant') { G.bigBallT = Math.max(G.bigBallT, 8); setBallR(G, BALL_R_BIG * 1.1); }
+  else if (k === 'ice') G.iceT = 8;
+  else if (k === 'lowgrav') G.lowGravT = 8;
+  else if (k === 'meteor') { G.rainT = 3.2; G.rainAcc = 0; }
+  else if (k === 'freeze') {
+    const ps = G.players.slice().sort(() => G.rng() - 0.5).slice(0, Math.max(1, Math.floor(G.players.length / 2)));
+    for (const p of ps) { p.frz = Math.max(p.frz, 1.8); p.armed = 0; ev(G, 'freeze', { p: p.i }); }
+  }
+  else if (k === 'bighead') for (const p of G.players) { p.big = Math.max(p.big, 7); p.tiny = 0; }
+  else if (k === 'tiny') for (const p of G.players) { p.tiny = Math.max(p.tiny, 6); p.big = 0; }
+  else if (k === 'biggoal') for (let side = 0; side < 2; side++) { G.goalFx[side] = { k: 'big', t: 8 }; setGoalH(G, side, GOAL_H_BIG); }
+  else if (k === 'wind') { G.wind.team = G.rng() < 0.5 ? 0 : 1; G.wind.t = 3; }
+}
+// more balls: real ones, any of them scores
+function spawnExtraBall(G, x) {
+  const b = newBall(x, 120);
+  b.held = false; b.extra = true; b.id = ++G.extraSeq; b.life = 14; b.r = G.ball.r;
+  b.vx = (G.rng() - 0.5) * 300; b.vy = 0;
+  G.extra.push(b);
+  ev(G, 'poof', { x: b.x | 0, y: b.y | 0 });
+}
+function stepExtra(G, dt) {
+  for (let i = G.extra.length - 1; i >= 0; i--) {
+    const b = G.extra[i];
+    b.life -= dt;
+    if (b.life <= 0) { ev(G, 'poof', { x: b.x | 0, y: b.y | 0 }); G.extra.splice(i, 1); }
   }
 }
 
@@ -808,7 +884,7 @@ function touchBall(G, b, p, kicked) {
           // it keeps flying through: undo the bounce
           b.pierce--;
           const [tx, ty] = goalTarget(G, b.modeTeam);
-          aimBall(b, tx, ty, 1650);
+          aimBall(b, tx, ty, 1650 * ballSpeedK(G));
           b.x += b.vx * 0.012; b.y += b.vy * 0.012;
           return;
         }
@@ -826,7 +902,7 @@ function touchBall(G, b, p, kicked) {
   }
   b.last = p.i; b.lastTeam = p.team; b.touchX = b.x; b.touchVx = b.vx;
   b.teamLast[p.team] = p.i; b.teamLastT[p.team] = G.t;
-  if (p.armed > 0 && G.phase === 'play') superShot(G, p);
+  if (p.armed > 0 && G.phase === 'play' && b === G.ball) superShot(G, p);
 }
 
 function knock(G, p, dir, stun) {
@@ -836,8 +912,8 @@ function knock(G, p, dir, stun) {
   ev(G, 'knock', { p: p.i, vx, vy, ep: G.epoch });
 }
 
-function goalCheck(G) {
-  const b = G.ball;
+function goalCheck(G, b) {
+  b = b || G.ball;
   if (G.phase !== 'play') return;
   let side = -1;
   if (b.x + b.r < GOAL_D && b.y > GROUND - G.goalH[0]) side = 0;
@@ -851,6 +927,7 @@ function goalCheck(G) {
   const own = !!sc && sc.team !== team;
   if (sc) { if (own) sc.stats.own++; else sc.stats.goals++; }
   G.lastGoal = { team, p: sc ? sc.i : -1, own, t: G.t, mode: b.mode };
+  if (b !== G.ball) G.lastGoal.extra = 1;
   G.goalsLog.push({ team, p: sc ? sc.i : -1, own, clock: Math.ceil(G.clock), ot: G.ot, kind: b.lastKind, mode: b.mode, fromX: b.touchX | 0, role: sc && sc.cpu ? sc.cpu.role : '' });
   for (const q of G.players) if (q.team === side && q.gauge < 1 && !q.armed) q.gauge = Math.min(1, q.gauge + GAUGE_CONCEDE);
   endMode(G);
@@ -888,11 +965,11 @@ function stepItems(G, dt) {
   if (G.setup.items) {
     G.itemT -= dt;
     if (G.itemT <= 0 && G.items.length < 2) {
-      G.itemT = 7 + G.rng() * 5;
+      G.itemT = (7 + G.rng() * 5) / (G.rules.itemRate || 1);
       const k = ITEM_KEYS[Math.floor(G.rng() * ITEM_KEYS.length)];
       const x = 360 + G.rng() * (W - 720);
       G.items.push({ id: ++G.itemSeq, k, x, y: -40, t: 0, hy: 250 + G.rng() * 210 });
-      ev(G, 'itemIn', { k });
+      ev(G, 'itemIn', { it: k });
     }
   }
   const b = G.ball;
@@ -931,7 +1008,7 @@ function giveItem(G, p, k) {
   else if (k === 'smallgoal') { const side = p.team; G.goalFx[side] = { k: 'small', t: d }; setGoalH(G, side, GOAL_H_SMALL); }
   else if (k === 'bigball') { G.bigBallT = d; setBallR(G, BALL_R_BIG); }
   else if (k === 'float') G.floatT = d;
-  ev(G, 'item', { p: p.i, k });
+  ev(G, 'item', { p: p.i, it: k });
 }
 
 // a ball nobody can reach any more gets a little push

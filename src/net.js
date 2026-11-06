@@ -316,6 +316,8 @@ function encodeSnap(G, seq) {
     b: [r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot), b.held ? 1 : 0, Math.max(0, MODES.indexOf(b.mode)), r2(b.modeT), b.modeTeam, b.last, b.r, b.ghostP, r2(b.heatT || 0)],
     f: G.fakes.map(f => [f.id, r0(f.x), r0(f.y), r0(f.vx), r0(f.vy)]),
     mt: G.meteors.map(m => [m.id, r0(m.x), r0(m.y), r0(m.vx), r0(m.vy), m.team]),
+    xb: G.extra.map(b => [b.id, r0(b.x), r0(b.y), r0(b.vx), r0(b.vy), r2(b.rot)]),
+    ic: r2(G.iceT), gv: r2(G.lowGravT),
     p: G.players.map(p => [r0(p.x), r0(p.y), r0(p.vx), r0(p.vy), p.ground ? 1 : 0, p.kick.t >= 0 ? r3(p.kick.t) : -1, p.kick.seq,
       r2(p.gauge), r2(p.armed), r2(p.frz), r2(p.stn), r2(p.big), r2(p.tiny), r2(p.dash), r2(p.giant), r2(p.scale), p.away ? 1 : 0, r2(p.landT || 0), r2(p.conf), r2(p.pow), r2(p.stretch), r3(p.legK), r2(p.muscle), r2(p.hp), r2(p.hot), r2(p.drunk), r2(p.present)]),
     it: G.items.map(i => [i.id, ITEM_KEYS.indexOf(i.k), r0(i.x), r0(i.y), r2(i.t)]),
@@ -339,7 +341,7 @@ function guestApplySnap(G, s, myIdx, onEvent) {
   const prevPhase = G.phase;
   G.phase = PH_NAME[s.ph] || 'play'; G.phaseT = s.pt; G.clock = s.ck; G.ot = !!s.ot; G.score = s.sc;
   G.goalH = s.gh; G.goalFx = s.gx.map(a => ({ k: a[0], t: a[1] })); G.bigBallT = s.bb; G.floatT = s.fl; G.wind.team = s.wd[0]; G.wind.t = s.wd[1];
-  G.ball.r = s.b[10] || BALL_R;
+  G.ball.r = s.b[10] || BALL_R; G.iceT = s.ic || 0; G.lowGravT = s.gv || 0;
   if (s.lg) G.lastGoal = { team: s.lg[0], p: s.lg[1], own: !!s.lg[2] };
   if (G.phase === 'end' && !G.result) { const sc = G.score; G.result = { win: sc[0] > sc[1] ? 0 : sc[1] > sc[0] ? 1 : -1, score: sc.slice() }; }
   // items and the clone decoys simply follow
@@ -383,7 +385,7 @@ function guestExtrapolate(G, dtFrame) {
   s.p.forEach((a, i) => {
     const p = G.players[i]; if (!p || p.owned) return;
     let x = a[0] + a[2] * age, y = a[1] + a[3] * age, vy = a[3];
-    if (!a[4]) { y += 0.5 * G_PLAYER * age * age; vy += G_PLAYER * age; }
+    if (!a[4]) { const g = playerGrav(G, p); y += 0.5 * g * age * age; vy += g * age; }
     const sy = standY(p); if (y > sy) { y = sy; vy = 0; }
     x = clamp(x, p.r, W - p.r);
     const d = NetSync.disp[i] || (NetSync.disp[i] = { ex: 0, ey: 0, px: x, py: y, q: -1 });
@@ -396,6 +398,7 @@ function guestExtrapolate(G, dtFrame) {
   });
   // the fakes
   G.fakes = s.f.map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], r: G.ball.r, rot: 0, av: 0 }));
+  G.extra = (s.xb || []).map(a => Object.assign(newBall(a[1] + a[3] * age, a[2] + a[4] * age), { id: a[0], vx: a[3], vy: a[4], rot: a[5], r: G.ball.r, held: false, extra: true }));
   G.meteors = (s.mt || []).map(a => ({ id: a[0], x: a[1] + a[3] * age, y: a[2] + a[4] * age, vx: a[3], vy: a[4], team: a[5] })).filter(m => m.y < GROUND);
   // the ball: run it forward from the picture, bouncing off the walls and off this phone's own player
   const sb = s.b, b = G.ball;
@@ -452,7 +455,7 @@ function hostPlaceRemote(G, p, pose, rttMs) {
   const age = clamp((performance.now() - pose.at) / 1000 + rttMs / 2000, 0, 0.2);
   p.scale = pose.sc; p.r = HEAD_R * p.scale; p.legK = pose.lk || targetLeg(p);
   let x = pose.x + pose.vx * age, y = pose.y + pose.vy * age, vy = pose.vy;
-  if (!pose.g) { y += 0.5 * G_PLAYER * age * age; vy += G_PLAYER * age; }
+  if (!pose.g) { const g = playerGrav(G, p); y += 0.5 * g * age * age; vy += g * age; }
   const sy = standY(p); if (y > sy) { y = sy; vy = 0; }
   p.x = clamp(x, p.r, W - p.r); p.y = y; p.vx = pose.vx; p.vy = vy; p.ground = !!pose.g;
   if (pose.ks !== p._netKs) {
