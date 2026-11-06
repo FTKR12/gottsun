@@ -1,0 +1,214 @@
+<div id="app">
+  <canvas id="cv" aria-label="試合の画面"></canvas>
+
+  <!-- buttons over the match -->
+  <div id="hud" hidden>
+    <button class="hbtn" id="b-pause" type="button" aria-label="一時停止">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+    </button>
+    <button class="hbtn" id="b-full" type="button" aria-label="全画面" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div id="netbar" hidden></div>
+
+  <!-- touch controls -->
+  <div id="touch" hidden>
+    <div class="tpad" id="t-move" aria-hidden="true"><span class="tarrow l">◀</span><span class="tarrow r">▶</span></div>
+    <button class="tbtn" id="t-super" type="button" tabindex="-1" aria-label="スーパー"><span>★</span><small>スーパー</small></button>
+    <button class="tbtn" id="t-jump" type="button" tabindex="-1" aria-label="ジャンプ"><span>▲</span><small>ジャンプ</small></button>
+    <button class="tbtn" id="t-kick" type="button" tabindex="-1" aria-label="キック"><span>👟</span><small>キック</small></button>
+  </div>
+
+  <!-- title -->
+  <section class="screen" id="scr-title" aria-labelledby="logo">
+    <div class="title-head"><h1 id="logo" class="logo"><span class="logo-top">ゴッツン</span><span class="logo-bot">サッカー</span></h1>
+    <p class="tagline">でっかい頭でヘディング！ 4人まで遊べる</p></div>
+    <nav class="title-menu">
+      <button class="btn btn-main big" id="b-solo" type="button" data-autofocus>ひとりで あそぶ<small>コンピューターと対戦</small></button>
+      <button class="btn btn-main big alt" id="b-multi" type="button">みんなで あそぶ<small>1台で・スマホをつないで 2〜4人</small></button>
+      <button class="btn btn-sub" id="b-howto" type="button">あそびかた</button>
+    </nav>
+    <div class="title-foot">
+      <button class="chip" id="b-sfx" type="button" aria-pressed="true">効果音</button>
+      <button class="chip" id="b-bgm" type="button" aria-pressed="true">音楽</button>
+    </div>
+  </section>
+
+  <!-- solo -->
+  <section class="screen" id="scr-solo" hidden aria-labelledby="solo-h">
+    <div class="board wide">
+      <h2 id="solo-h">ひとりで あそぶ</h2>
+      <div class="row-label">キャラクター</div>
+      <div class="pick" id="solo-pick"></div>
+      <div class="char-info" id="solo-info"></div>
+      <div class="opts">
+        <div class="opt"><span class="opt-k">試合</span><div class="seg" id="solo-size"><button type="button" data-v="1">1対1</button><button type="button" data-v="2">2対2（味方もCPU）</button></div></div>
+        <div class="opt"><span class="opt-k">CPUの強さ</span><div class="seg" id="solo-lv"><button type="button" data-v="easy">よわい</button><button type="button" data-v="normal">ふつう</button><button type="button" data-v="hard">つよい</button></div></div>
+      </div>
+      <div class="opts" id="solo-rules"></div>
+      <div class="actions"><button class="btn btn-plain" type="button" data-back>もどる</button><button class="btn btn-main" id="solo-go" type="button">キックオフ！</button></div>
+    </div>
+  </section>
+
+  <!-- together: which way -->
+  <section class="screen" id="scr-multi" hidden aria-labelledby="multi-h">
+    <div class="board">
+      <h2 id="multi-h">みんなで あそぶ</h2>
+      <div class="ways">
+        <button class="way" id="m-local" type="button" data-autofocus>
+          <b>この画面で</b><span>キーボードで4人まで（せまいです）。ゲームパッドをつなげば、ひとり1つずつ使えます</span>
+        </button>
+        <button class="way" id="m-p2p" type="button">
+          <b>スマホをつなぐ（合言葉）</b><span>合言葉を LINE などで送り合って、スマホどうしをじかにつなぎます。4台まで</span>
+        </button>
+      </div>
+      <div class="actions"><button class="btn btn-plain" type="button" data-back>もどる</button></div>
+    </div>
+  </section>
+
+  <!-- one screen, several players -->
+  <section class="screen" id="scr-local" hidden aria-labelledby="local-h">
+    <div class="board wide">
+      <h2 id="local-h">この画面で みんなで</h2>
+      <p class="hint" id="local-hint">参加する人は、自分のキックボタンを押してください。</p>
+      <div class="field" id="local-field"></div>
+      <div class="keys" id="local-keys"></div>
+      <div class="opts" id="local-rules"></div>
+      <div class="actions"><button class="btn btn-plain" type="button" data-back>もどる</button><button class="btn btn-main" id="local-go" type="button" disabled>キックオフ！</button></div>
+    </div>
+  </section>
+
+  <!-- phones linked with codes -->
+  <section class="screen" id="scr-p2p" hidden aria-labelledby="pp-h">
+    <div class="board wide">
+      <h2 id="pp-h">スマホを合言葉でつなぐ</h2>
+      <label class="name-row">あなたの名前 <input id="my-name" maxlength="8" autocomplete="nickname" placeholder="8文字まで"></label>
+      <div id="pp-pickrole">
+        <p class="hint">1台目が合言葉を作って送り、相手が返事の合言葉を送り返すと、スマホどうしがじかにつながります。3人目・4人目も、1人ずつ同じように送り合います。</p>
+        <div class="ways">
+          <button class="way" id="pp-host-go" type="button"><b>1台目（さそう側）</b><span>合言葉を作って、相手に送ります</span></button>
+          <button class="way" id="pp-guest-go" type="button"><b>2台目以降（さそわれた側）</b><span>届いた合言葉を貼って、返事を作ります</span></button>
+        </div>
+      </div>
+      <div id="pp-host" hidden>
+        <div class="code-box" id="pp-invite">
+          <h3 id="pp-invite-h">① この合言葉を相手に送る</h3>
+          <textarea class="code" id="pp-offer" readonly rows="3" aria-label="1台目の合言葉"></textarea>
+          <div class="btn-row"><button class="btn btn-sub" id="pp-offer-copy" type="button">コピー</button><button class="btn btn-sub" id="pp-offer-share" type="button" hidden>LINE などで送る</button></div>
+          <h3>② 相手から届いた返事を貼る</h3>
+          <textarea class="code in" id="pp-answer-in" rows="2" placeholder="ここに貼る" aria-label="相手からの返事の合言葉"></textarea>
+          <div class="btn-row"><button class="btn btn-main" id="pp-link" type="button">つなぐ</button><button class="btn btn-sub" id="pp-newcode" type="button">合言葉を作り直す</button></div>
+        </div>
+        <button class="btn btn-sub" id="pp-more" type="button" hidden>もう1人さそう</button>
+      </div>
+      <div id="pp-guest" hidden>
+        <div class="code-box" id="pp-reply-wrap">
+          <h3>① 1台目から届いた合言葉を貼る</h3>
+          <textarea class="code in" id="pp-offer-in" rows="2" placeholder="ここに貼る" aria-label="1台目の合言葉"></textarea>
+          <button class="btn btn-main" id="pp-reply" type="button">返事の合言葉を作る</button>
+          <div id="pp-reply-box" hidden>
+            <h3>② この返事を1台目に送る</h3>
+            <textarea class="code" id="pp-answer" readonly rows="3" aria-label="返事の合言葉"></textarea>
+            <div class="btn-row"><button class="btn btn-sub" id="pp-answer-copy" type="button">コピー</button><button class="btn btn-sub" id="pp-answer-share" type="button" hidden>LINE などで送る</button></div>
+          </div>
+        </div>
+      </div>
+      <p class="status" id="pp-status" role="status" hidden></p>
+      <div id="pp-lobby" hidden>
+        <div class="field" id="pp-field"></div>
+        <div class="row-label" id="pp-pick-h">あなたのキャラクター</div>
+        <div class="pick" id="pp-pick"></div>
+        <div class="char-info" id="pp-info"></div>
+        <div class="opts" id="pp-rules"></div>
+        <p class="hint" id="pp-wait" hidden>1台目がキックオフするのを待っています…</p>
+      </div>
+      <details class="help">
+        <summary>つながらないとき</summary>
+        <ol>
+          <li>どのスマホも、LINE などのアプリの中ではなく、Safari か Chrome でこのページを開きます。</li>
+          <li>合言葉は、届いた文をまるごとコピーして貼ります（前後に文字がついていても大丈夫です）。</li>
+          <li>2台目は返事を送ったら、このページにもどって開いたまま待ちます（1台目が貼ってから2分のあいだは、2台ともおたがいを呼び続けます）。</li>
+          <li>「つながりませんでした」と出たら、同じ Wi‑Fi につないで、1台目の合言葉から作り直します。</li>
+          <li>職場や学校の Wi‑Fi では、つながらないことがあります。スマホの回線（4G/5G）でも試してください。</li>
+          <li>試合中に切れたときは、その人のぶんをコンピューターが代わりにプレーします。1台目の一時停止メニューの「合言葉で呼びもどす」から、同じ席にもどれます。</li>
+        </ol>
+      </details>
+      <p class="site" id="pp-site" hidden></p>
+      <div class="actions"><button class="btn btn-plain" id="pp-back" type="button">もどる</button><button class="btn btn-main" id="pp-start" type="button" hidden disabled>キックオフ！</button></div>
+    </div>
+  </section>
+
+  <!-- how to play -->
+  <section class="screen" id="scr-howto" hidden aria-labelledby="how-h">
+    <div class="board wide">
+      <h2 id="how-h">あそびかた</h2>
+      <p class="lead">頭とくつでボールを相手のゴールへ。時間切れのときに点が多いチームのかち。同点なら、先に1点とったほうがかちの「Vゴール」です。</p>
+      <div class="how-grid">
+        <div class="how-card"><h3>うごく・とぶ</h3><p>左右に走って、ジャンプでヘディング。相手の頭の上にも乗れます。</p></div>
+        <div class="how-card"><h3>キック</h3><p>くつの前にボールがあるときに押すと、相手ゴールへけります。高いボールほど高く上がります。</p></div>
+        <div class="how-card"><h3>スーパー</h3><p>名札の下のゲージがたまると光ります。スーパーボタンで、キャラクターごとの必殺わざ。</p></div>
+        <div class="how-card"><h3>アイテム</h3><p>空から落ちてくるシャボン玉。頭でさわるか、ボールを当てると、最後にさわった人のものに。</p></div>
+      </div>
+      <h3 class="sub-h">ボタン</h3>
+      <table class="keys-table">
+        <thead><tr><th></th><th>左・右</th><th>ジャンプ</th><th>キック</th><th>スーパー</th></tr></thead>
+        <tbody>
+          <tr><th>キーボード1</th><td>A・D</td><td>W</td><td>S / スペース</td><td>E</td></tr>
+          <tr><th>キーボード2</th><td>←・→</td><td>↑</td><td>↓</td><td>Enter / 右Shift</td></tr>
+          <tr><th>キーボード3</th><td>F・H</td><td>T</td><td>G</td><td>Y</td></tr>
+          <tr><th>キーボード4</th><td>J・L</td><td>I</td><td>K</td><td>O</td></tr>
+          <tr><th>ゲームパッド</th><td>十字キー / スティック</td><td>A</td><td>X・B</td><td>Y・LB・RB</td></tr>
+        </tbody>
+      </table>
+      <p class="hint">ひとりで遊ぶときは、どのキーでも動かせます（Z キック・X スーパーも使えます）。スマホでは画面のボタンで。一時停止は Esc か P。</p>
+      <h3 class="sub-h">キャラクターと必殺わざ</h3>
+      <ul class="roster" id="how-roster"></ul>
+      <h3 class="sub-h">アイテム</h3>
+      <ul class="items" id="how-items"></ul>
+      <div class="actions"><button class="btn btn-main" type="button" data-back data-autofocus>わかった！</button></div>
+    </div>
+  </section>
+
+  <!-- pause -->
+  <section class="screen dim" id="scr-pause" hidden aria-labelledby="pause-h">
+    <div class="board narrow">
+      <h2 id="pause-h">一時停止</h2>
+      <p class="hint" id="pause-note" hidden></p>
+      <div class="stack">
+        <button class="btn btn-main" id="p-resume" type="button" data-autofocus>つづける</button>
+        <button class="btn btn-sub" id="p-invite" type="button" hidden>合言葉で呼びもどす</button>
+        <button class="btn btn-sub" id="p-retry" type="button">さいしょから</button>
+        <button class="btn btn-plain" id="p-quit" type="button">試合をやめる</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- the friend's phone lost the link: paste a new code -->
+  <section class="screen dim" id="scr-rejoin" hidden aria-labelledby="rj-h">
+    <div class="board narrow" id="rj-board">
+      <h2 id="rj-h">つなぎ直す</h2>
+      <div id="rj-body"></div>
+      <div class="actions"><button class="btn btn-plain" id="rj-close" type="button">とじる</button></div>
+    </div>
+  </section>
+
+  <!-- results -->
+  <section class="screen dim" id="scr-result" hidden aria-labelledby="res-h">
+    <div class="board wide result">
+      <h2 id="res-h">試合終了</h2>
+      <div class="res-score" id="res-score"></div>
+      <p class="res-win" id="res-win"></p>
+      <table class="res-table" id="res-table"></table>
+      <p class="hint" id="res-wait" hidden>1台目が次をえらんでいます…</p>
+      <div class="actions" id="res-actions">
+        <button class="btn btn-plain" id="r-title" type="button">タイトルへ</button>
+        <button class="btn btn-sub" id="r-pick" type="button">キャラをえらびなおす</button>
+        <button class="btn btn-main" id="r-again" type="button" data-autofocus>もういちど</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="rotate" hidden>スマホを横にすると、大きく遊べます</div>
+  <div id="toast" role="status" hidden></div>
+</div>
