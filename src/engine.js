@@ -62,7 +62,7 @@ function ev(G, k, o) {
 
 // ---------- geometry helpers ----------
 // hip to shoe: longer for the long-legged, and longer still while stretched
-function targetLeg(p) { return (CHARS[p.char].leg || 1) * (p.stretch > 0 ? 1.7 : 1); }
+function targetLeg(p) { return (CHARS[p.char].leg || 1) * (p.stretch > 0 ? 1.5 : 1); }
 function legLen(p) { return LEG * Math.sqrt(p.scale) * (p.legK || 1); }
 function footOff(p) { return PIVOT * p.r + legLen(p) * Math.cos(REST_A) + FOOT_R; }
 function standY(p) { return GROUND - footOff(p); }

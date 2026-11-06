@@ -79,7 +79,7 @@ const CHARS = [
     skin: '#F3CFAE', hair: '#1D1A21', hair2: '#3B3542', look: 'shades', blurb: '年齢不明のごつい少年' },
   { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 5, jmp: 3, kck: 4, sup: 'slide', mass: 1,
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'いじり方をミスるとキレるので要注意' },
-  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.92, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 0.9,
+  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.95, leg: 2.7, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 0.9,
     skin: '#F4D5BC', hair: '#E3C07A', hair2: '#6E4E30', look: 'longhair', blurb: '金髪でクールな手足長男' },
   { id: 'kitahara', name: '北原', type: 'タマル', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1.1,
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },

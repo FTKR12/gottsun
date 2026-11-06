@@ -567,7 +567,7 @@ function drawMuscleArm(c, p, ch, t, part) {
 function drawLimbs(c, p, ch, G, t, fx, fy, kicking) {
   const r = p.r, k = Math.sqrt(p.scale), f = p.face, mood = moodOf(p, G, t);
   const grow = Math.sqrt((p.legK || 1) / (ch.leg || 1));       // the arms stretch with the super too
-  const A = r * 1.3 * grow;
+  const A = r * 1.5 * grow;
   const run = clamp(Math.abs(p.vx) / 320, 0, 1), sw = Math.sin(t * 13 + p.i) * 0.75 * run * (p.ground ? 1 : 0.3);
   // arm angles from straight down, + toward the face
   let af, ab;

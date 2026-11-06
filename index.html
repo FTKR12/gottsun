@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1F5E3A">
-<meta name="gottsun-build" content="afd1c2dcb1">
+<meta name="gottsun-build" content="56d43b7976">
 <meta name="description" content="大きな頭でヘディング！4人まで遊べるあたまサッカー。CPU対戦、1台でみんなで、スマホを合言葉でつないで遊べます。">
 <title>ゴッツンサッカー</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
@@ -562,7 +562,7 @@ const CHARS = [
     skin: '#F3CFAE', hair: '#1D1A21', hair2: '#3B3542', look: 'shades', blurb: '年齢不明のごつい少年' },
   { id: 'murohashi', name: '室橋', type: '冷徹パワポ', size: 1.0, body: 3, spd: 5, jmp: 3, kck: 4, sup: 'slide', mass: 1,
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'いじり方をミスるとキレるので要注意' },
-  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.92, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 0.9,
+  { id: 'yuuki', name: 'ゆうき', type: 'クール', size: 0.95, leg: 2.7, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 0.9,
     skin: '#F4D5BC', hair: '#E3C07A', hair2: '#6E4E30', look: 'longhair', blurb: '金髪でクールな手足長男' },
   { id: 'kitahara', name: '北原', type: 'タマル', size: 1.04, body: 3, spd: 3, jmp: 3, kck: 3, sup: 'hot', mass: 1.1,
     skin: '#F2CDAE', hair: '#17171C', hair2: '#3A3A44', look: 'curtain', blurb: '実は器用で何でも無難にこなせるタイプ' },
@@ -697,7 +697,7 @@ function ev(G, k, o) {
 
 // ---------- geometry helpers ----------
 // hip to shoe: longer for the long-legged, and longer still while stretched
-function targetLeg(p) { return (CHARS[p.char].leg || 1) * (p.stretch > 0 ? 1.7 : 1); }
+function targetLeg(p) { return (CHARS[p.char].leg || 1) * (p.stretch > 0 ? 1.5 : 1); }
 function legLen(p) { return LEG * Math.sqrt(p.scale) * (p.legK || 1); }
 function footOff(p) { return PIVOT * p.r + legLen(p) * Math.cos(REST_A) + FOOT_R; }
 function standY(p) { return GROUND - footOff(p); }
@@ -2510,7 +2510,7 @@ function drawMuscleArm(c, p, ch, t, part) {
 function drawLimbs(c, p, ch, G, t, fx, fy, kicking) {
   const r = p.r, k = Math.sqrt(p.scale), f = p.face, mood = moodOf(p, G, t);
   const grow = Math.sqrt((p.legK || 1) / (ch.leg || 1));       // the arms stretch with the super too
-  const A = r * 1.3 * grow;
+  const A = r * 1.5 * grow;
   const run = clamp(Math.abs(p.vx) / 320, 0, 1), sw = Math.sin(t * 13 + p.i) * 0.75 * run * (p.ground ? 1 : 0.3);
   // arm angles from straight down, + toward the face
   let af, ab;
@@ -5447,7 +5447,7 @@ setInterval(() => { if (M.G && M.mode !== 'demo') renderNetbar(); else $('#netba
 
 // ---------- a newer version on the site: take it by itself ----------
 // phones keep an open page (and the site's page) for a long time, so look now and then and reload on the title screen
-var BUILD_ID = 'afd1c2dcb1';
+var BUILD_ID = '56d43b7976';
 var Updater = {
   busy: false, pending: false,
   safe() {
