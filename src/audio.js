@@ -121,6 +121,7 @@ const Sound = (() => {
     giant() { tone({ f: 140, f2: 340, d: 0.5, v: 0.22, type: 'triangle', vib: 12, vibD: 20 }); },
     wind() { noise({ ft: 'bandpass', f: 300, f2: 1100, d: 1.6, v: 0.3, q: 0.5, a: 0.2 }); },
     dazzle() { for (let i = 0; i < 6; i++) tone({ f: 1400 + i * 380, d: 0.18, v: 0.06, at: i * 0.035, type: 'triangle' }); tone({ f: 300, f2: 2400, d: 0.35, v: 0.06, type: 'sine' }); },
+    stretch() { tone({ f: 260, f2: 1300, d: 0.7, v: 0.12, type: 'sine', vib: 6, vibD: 25 }); tone({ f: 520, f2: 2000, d: 0.5, v: 0.05, type: 'triangle', at: 0.15 }); },
     slip() { tone({ f: 900, f2: 380, d: 0.4, v: 0.09, vib: 9, vibD: 40 }); },
     ramen() {
       if (!rate('ramen', 0.15)) return;

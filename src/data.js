@@ -5,7 +5,7 @@
 // ===================================================================
 
 const GAME_VER = 1;
-const NET_V = 1;
+const NET_V = 2;
 
 // ---- the field, in world units (the canvas scales this to the screen) ----
 const W = 1600;            // wall to wall
@@ -73,6 +73,8 @@ const CHARS = [
     skin: '#F3CFAE', hair: '#1D1A21', hair2: '#3B3542', look: 'shades', blurb: 'まんまるサングラスの、つかみどころのない男。キックは強め' },
   { id: 'murohashi', name: '室橋', type: '司令塔', size: 1.0, body: 3, spd: 4, jmp: 3, kck: 3, sup: 'ramen', mass: 1,
     skin: '#F6D3B6', hair: '#1A1A1F', hair2: '#34343D', look: 'center', blurb: 'センターパートのクールな司令塔。チームを元気にする' },
+  { id: 'yuuki', name: 'ゆうき', type: 'リーチ型', size: 0.95, leg: 1.9, limbs: true, body: 3, spd: 3, jmp: 1, kck: 3, sup: 'stretch', mass: 1,
+    skin: '#F4D5BC', hair: '#E3C07A', hair2: '#6E4E30', look: 'longhair', blurb: '手足がながーい、のっぽの金髪。遠くのボールにも足がとどく。ジャンプは苦手' },
 ];
 const CHAR_IDX = Object.fromEntries(CHARS.map((c, i) => [c.id, i]));
 
@@ -87,6 +89,7 @@ const SUPERS = {
   rocket:  { name: 'ロケットボール',   icon: '🚀', armed: true,  desc: '次にさわったボールが、相手ゴールを追いかけて飛んでいく' },
   wind:    { name: 'おおかぜ',         icon: '🌀', armed: false, desc: '相手ゴールに向かって大風。相手はおしもどされ、ボールは流される' },
   dazzle:  { name: 'ギラギラサングラス', icon: '😎', armed: false, desc: 'サングラスがピカッ！ 相手チームの左右が4秒間あべこべになる' },
+  stretch: { name: 'ぐーんとのっぽ',   icon: '🦒', armed: false, desc: '7秒間、手足がぐーんとのびて背が高くなる。高いボールにとどき、ゴール前のかべにもなる' },
   ramen:   { name: '替え玉パワー',     icon: '🍜', armed: false, desc: 'ラーメンで元気いっぱい！ 味方全員が6秒間、速く高くなりキックも強くなる。味方のゲージもたまる' },
 };
 

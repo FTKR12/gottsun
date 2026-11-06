@@ -160,6 +160,7 @@ function plan(G, p, c, lv) {
     if (SUPERS[kind].armed) c.wantSuper = d < 300 && front && role === 'att';
     else if (kind === 'thunder' || kind === 'dazzle') c.wantSuper = foeNear && (ballOurHalf || attackThird);
     else if (kind === 'giant') c.wantSuper = (ballOurHalf && d < 420) || !!threat;
+    else if (kind === 'stretch') c.wantSuper = !!threat || (ballOurHalf && d < 380) || (attackThird && d < 320);
     else if (kind === 'ramen') c.wantSuper = d < 520;
     else if (kind === 'wind') c.wantSuper = attackThird && (b.x - p.x) * dir > 0 && d < 500 || (!!threat && (b.x - p.x) * dir > -40);
   }
@@ -303,10 +304,11 @@ function kickChance(G, p, c, lv) {
   const hd = Math.hypot(bx - p.x, by - p.y);
   if (rel > -p.r * 0.4 && hd < (p.r + R + 10) * lv.kickRange && by < p.y + p.r * 0.2) return c.rng() < 0.7;
   // in front of the shoe
-  const reach = (p.r + R + 30) * lv.kickRange;
+  const extra = legLen(p) - LEG * Math.sqrt(p.scale);   // long legs reach further
+  const reach = (p.r + R + 30) * lv.kickRange + extra * 0.7;
   if (rel < -4 || rel > reach) return false;
   const [, py] = pivotOf(p);
   if (by < p.y - p.r * 0.45 || by > GROUND) return false;
-  if (Math.abs(by - py) > 100) return false;
+  if (Math.abs(by - py) > 100 + extra) return false;
   return c.rng() < 0.85;
 }

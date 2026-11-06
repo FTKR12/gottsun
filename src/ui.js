@@ -211,7 +211,7 @@ function onEvent(e, remote) {
       FX.banner = { text: sp.icon + ' ' + sp.name, sub: M.label[P.i] || P.name, t: 0, max: 1.5, col: TEAM_COL[P.team].deep, dir: P.team ? -1 : 1, size: 56 };
       ring(P.x, P.y, superColor(e.s), 20, 170, 0.5, 10);
       S('super', e.s);
-      if (e.s === 'giant') S('giant'); if (e.s === 'wind') S('wind');
+      if (e.s === 'giant') S('giant'); if (e.s === 'wind') S('wind'); if (e.s === 'stretch') S('stretch');
       break;
     }
     case 'shot': if (P) { ring(G.ball.x, G.ball.y, superColor(e.s), 16, 110, 0.4, 8); S('shot', e.s); FX.shake = Math.max(FX.shake, 0.3); } break;
@@ -862,7 +862,7 @@ const Net = {
   },
   guestPose(me) {
     const l = this.link; if (!l || !l.open || !M.G) return;
-    l.sendRt({ t: 'p', ep: NetSync.epoch, x: r0(me.x), y: r2(me.y), vx: r0(me.vx), vy: r0(me.vy), g: me.ground ? 1 : 0, ks: me.kick.seq, kt: r3(me.kick.t), kd: me.kick.dir | 0, ss: me.superSeq, sc: r2(me.scale), rt: r0(NetSync.rtt) });
+    l.sendRt({ t: 'p', ep: NetSync.epoch, x: r0(me.x), y: r2(me.y), vx: r0(me.vx), vy: r0(me.vy), g: me.ground ? 1 : 0, ks: me.kick.seq, kt: r3(me.kick.t), kd: me.kick.dir | 0, ss: me.superSeq, sc: r2(me.scale), lk: r3(me.legK || 1), rt: r0(NetSync.rtt) });
     const now = performance.now();
     if (now - this.pingT > 1000) { this.pingT = now; l.sendRt({ t: 'pi', c: now }); }
   },

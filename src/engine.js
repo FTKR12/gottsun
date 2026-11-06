@@ -45,7 +45,7 @@ function mkPlayer(i, sp, team, slot) {
     x: 0, y: 0, vx: 0, vy: 0, ground: true, scale: 1, r: HEAD_R,
     kick: { t: -1, seq: 0, hit: false, dir: 0 }, jumpBuf: 0, coyote: 0, landT: 0,
     gauge: 0.25, armed: 0, superSeq: 0,
-    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0,
+    frz: 0, stn: 0, big: 0, tiny: 0, dash: 0, giant: 0, conf: 0, pow: 0, stretch: 0, legK: 1,
     lastTouchT: -9, blink: 0,
     stats: { goals: 0, own: 0, touches: 0, shots: 0, supers: 0, items: 0 },
     cpu: null, away: false,
@@ -60,7 +60,10 @@ function ev(G, k, o) {
 }
 
 // ---------- geometry helpers ----------
-function footOff(p) { return PIVOT * p.r + LEG * Math.sqrt(p.scale) * Math.cos(REST_A) + FOOT_R; }
+// hip to shoe: longer for the long-legged, and longer still while stretched
+function targetLeg(p) { return (CHARS[p.char].leg || 1) * (p.stretch > 0 ? 1.7 : 1); }
+function legLen(p) { return LEG * Math.sqrt(p.scale) * (p.legK || 1); }
+function footOff(p) { return PIVOT * p.r + legLen(p) * Math.cos(REST_A) + FOOT_R; }
 function standY(p) { return GROUND - footOff(p); }
 function barRect(G, side) {
   const top = GROUND - G.goalH[side] - BAR_T;
@@ -79,7 +82,7 @@ function kickOmega(kt) {
 }
 function pivotOf(p) { return [p.x + p.face * 6 * p.scale, p.y + PIVOT * p.r]; }
 function footAt(p, kt) {
-  const a = kickAngleAt(kt), L = LEG * Math.sqrt(p.scale);
+  const a = kickAngleAt(kt), L = legLen(p);
   const [px, py] = pivotOf(p);
   return [px + p.face * Math.sin(a) * L, py + Math.cos(a) * L, a];
 }
@@ -129,7 +132,7 @@ function startX(G, p) {
 }
 function placeAtStart(G, p) {
   p.x = startX(G, p); p.vx = 0; p.vy = 0; p.ground = true;
-  p.scale = targetScale(p); p.r = HEAD_R * p.scale; p.y = standY(p);
+  p.scale = targetScale(p); p.r = HEAD_R * p.scale; p.legK = targetLeg(p); p.y = standY(p);
   p.kick.t = -1; p.frz = 0; p.stn = 0; p.conf = 0; p.jumpBuf = 0;
 }
 
@@ -222,6 +225,7 @@ function tickTimers(G, p, dt) {
   if (p.giant > 0) p.giant = Math.max(0, p.giant - dt);
   if (p.conf > 0) p.conf = Math.max(0, p.conf - dt);
   if (p.pow > 0) p.pow = Math.max(0, p.pow - dt);
+  if (p.stretch > 0) p.stretch = Math.max(0, p.stretch - dt);
   if (p.armed > 0) { p.armed -= dt; if (p.armed <= 0) { p.armed = 0; ev(G, 'fizzle', { p: p.i }); } }
   if (G.phase === 'play' && !p.armed && p.gauge < 1) p.gauge = Math.min(1, p.gauge + GAUGE_RATE * dt);
 }
@@ -238,6 +242,13 @@ function stepPlayer(G, p, inp, dt) {
     const before = footOff(p);
     p.scale += clamp(ts - p.scale, -3 * dt, 3 * dt);
     p.r = HEAD_R * p.scale;
+    if (p.ground) p.y += before - footOff(p);
+  }
+  // legs ease to their length too (the stretch super), feet staying on the grass
+  const tl = targetLeg(p);
+  if (Math.abs(tl - p.legK) > 0.001) {
+    const before = footOff(p);
+    p.legK += clamp(tl - p.legK, -2.6 * dt, 2.6 * dt);
     if (p.ground) p.y += before - footOff(p);
   }
   const off = !inp || p.frz > 0 || p.stn > 0;
@@ -347,6 +358,8 @@ function trySuper(G, p) {
     for (const q of foes) { q.stn = Math.max(q.stn, 1.4); q.armed = 0; ev(G, 'bolt', { p: q.i }); }
   } else if (kind === 'giant') {
     p.giant = 8;
+  } else if (kind === 'stretch') {
+    p.stretch = 7;
   } else if (kind === 'wind') {
     G.wind.team = p.team; G.wind.t = 1.7;
   } else if (kind === 'ramen') {
@@ -553,7 +566,7 @@ function ballVsPlayer(G, b, p, dt, s) {
     if (d2 < rr * rr) {
       const d = Math.sqrt(d2) || 0.01, nx = dx / d, ny = dy / d;
       b.x = fx + nx * rr; b.y = fy + ny * rr;
-      const w = kickOmega(kt), L = LEG * Math.sqrt(p.scale);
+      const w = kickOmega(kt), L = legLen(p);
       const fvx = p.vx + p.face * Math.cos(fa) * L * w, fvy = p.vy - Math.sin(fa) * L * w;
       const rvx = b.vx - fvx, rvy = b.vy - fvy, vn = rvx * nx + rvy * ny;
       if (vn < 0) {

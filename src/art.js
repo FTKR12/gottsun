@@ -300,6 +300,7 @@ function drawPlayer(c, p, G, t, opt) {
   const kt = p.kick.t;
   const [fx, fy, fa] = footAt(p, kt);
   const kicking = kt >= 0;
+  if (ch.limbs) drawLimbs(c, p, ch, G, t, fx, fy, kicking);
   if (!kicking) drawShoe(c, fx, fy, fa, p.face, team, p.scale);
   c.save();
   c.translate(p.x, p.y);
@@ -363,7 +364,7 @@ function drawPlayer(c, p, G, t, opt) {
 }
 
 function superColor(k) {
-  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347' }[k] || '#FFFFFF';
+  return { fire: '#FF6A1A', ice: '#6CD3FF', thunder: '#FFD21E', clone: '#B07BFF', giant: '#FFB21E', ghost: '#C9B8FF', rocket: '#FF4D6D', wind: '#5EE39A', dazzle: '#FFF27A', ramen: '#FFB347', stretch: '#FFC94D' }[k] || '#FFFFFF';
 }
 
 function moodOf(p, G, t) {
@@ -378,6 +379,63 @@ function moodOf(p, G, t) {
   const bl = (t * 0.9 + p.i * 0.37) % 4;
   if (bl < 0.09) return 'blink';
   return 'calm';
+}
+
+// ゆうき: long arms in rolled-up white sleeves, one long leg, and an apron (world space)
+function drawLimbs(c, p, ch, G, t, fx, fy, kicking) {
+  const r = p.r, k = Math.sqrt(p.scale), f = p.face, mood = moodOf(p, G, t);
+  const grow = Math.sqrt((p.legK || 1) / (ch.leg || 1));       // the arms stretch with the super too
+  const A = r * 1.3 * grow;
+  const run = clamp(Math.abs(p.vx) / 320, 0, 1), sw = Math.sin(t * 13 + p.i) * 0.75 * run * (p.ground ? 1 : 0.3);
+  // arm angles from straight down, + toward the face
+  let af, ab;
+  if (p.frz > 0) { af = 0.3; ab = -0.3; }
+  else if (mood === 'joy') { af = 2.2 + Math.sin(t * 11) * 0.22; ab = -2.2 - Math.sin(t * 11 + 1) * 0.22; }
+  else if (mood === 'dizzy') { af = Math.sin(t * 9) * 1.9; ab = Math.cos(t * 8) * 1.9; }
+  else if (mood === 'sad') { af = 0.05; ab = -0.05; }
+  else if (kicking) { const u = Math.min(1, p.kick.t / KICK_FWD); af = 0.2 - 1.1 * u; ab = -0.2 + 1.3 * u; }
+  else if (!p.ground) { const up = clamp(-p.vy / 700, -0.3, 1); af = 0.5 + 1.6 * up; ab = -0.5 - 1.6 * up; }
+  else { const idle = Math.sin(t * 2.1 + p.i) * 0.05; af = 0.16 + sw + idle; ab = -0.18 - sw - idle; }
+  const dirv = a => [f * Math.sin(a), Math.cos(a)];
+  const w = 8.5 * k;
+  const arm = (sx, sy, ang, back) => {
+    const x0 = p.x + f * sx * r, y0 = p.y + sy * r;
+    const [ux, uy] = dirv(ang - 0.14), [vx, vy] = dirv(ang + 0.26);
+    const ex = x0 + ux * A * 0.5, ey = y0 + uy * A * 0.5, hx = ex + vx * A * 0.5, hy = ey + vy * A * 0.5;
+    const skin = back ? mix(ch.skin, '#7A5A48', 0.18) : ch.skin, shirt = back ? '#DCDCD3' : '#F7F7F1';
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.strokeStyle = OUT; c.lineWidth = w + 5;
+    c.beginPath(); c.moveTo(x0, y0); c.lineTo(ex, ey); c.lineTo(hx, hy); c.stroke();
+    c.strokeStyle = skin; c.lineWidth = w;
+    c.beginPath(); c.moveTo(ex, ey); c.lineTo(hx, hy); c.stroke();
+    c.strokeStyle = shirt;
+    c.beginPath(); c.moveTo(x0, y0); c.lineTo(ex, ey); c.lineTo(ex + (hx - ex) * 0.22, ey + (hy - ey) * 0.22); c.stroke();
+    if (!back) {
+      // a thin dark band on the wrist
+      const bx = ex + (hx - ex) * 0.78, by = ey + (hy - ey) * 0.78, nx = -(hy - ey), ny = hx - ex, nd = Math.hypot(nx, ny) || 1;
+      c.strokeStyle = '#1E1E24'; c.lineWidth = 2.4;
+      c.beginPath(); c.moveTo(bx + nx / nd * w * 0.5, by + ny / nd * w * 0.5); c.lineTo(bx - nx / nd * w * 0.5, by - ny / nd * w * 0.5); c.stroke();
+    }
+    circ(c, hx, hy, w * 0.7); fillOut(c, skin, 2.4);
+  };
+  arm(-0.44, 0.74, ab, true);
+  // the leg, from the hip to the shoe
+  const [hx, hy] = pivotOf(p);
+  c.lineCap = 'round';
+  c.strokeStyle = OUT; c.lineWidth = 13 * k + 5;
+  c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
+  c.strokeStyle = '#2B2B33'; c.lineWidth = 13 * k;
+  c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
+  // the apron, hanging from the waist (its top is hidden by the head)
+  const L = legLen(p), top = p.y + r * 0.55, bot = p.y + r + Math.min(L * 0.2, r * 0.42);
+  const sway = clamp(-p.vx * f / 900, -0.25, 0.25) * r;
+  c.beginPath();
+  c.moveTo(hx - f * r * 0.5, top); c.lineTo(hx + f * r * 0.56, top);
+  c.lineTo(hx + f * r * 0.62 + sway, bot); c.lineTo(hx - f * r * 0.58 + sway, bot); c.closePath();
+  fillOut(c, '#CDB88B', 3);
+  c.strokeStyle = 'rgba(110,90,50,.55)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(hx + f * r * 0.04 + sway * 0.6, p.y + r * 1.02); c.lineTo(hx + f * r * 0.04 + sway, bot - 1); c.stroke();
+  arm(0.36, 0.82, af, false);
 }
 
 function drawHead(c, ch, p, lw, t, lx, ly, mood) {
@@ -448,6 +506,22 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.9; c.lineCap = 'round';
     for (const [x0, y0, x1, y1, x2, y2] of [[-1.16, -0.05, -0.98, 0.22, -1.1, 0.5], [-0.92, -0.72, -0.66, -0.6, -0.74, -0.3], [-0.36, -1.08, -0.1, -0.94, 0.12, -1.06], [0.62, -1.0, 0.86, -0.86, 0.98, -0.6]]) {
       c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x1, y1, x2, y2); c.stroke();
+    }
+  } else if (look === 'longhair') {
+    // long, straight, bleached hair down to the jaw, dark at the roots
+    c.beginPath();
+    c.moveTo(1.02, 0.66);
+    c.quadraticCurveTo(1.18, 0.02, 1.02, -0.58);
+    c.quadraticCurveTo(0.8, -1.18, 0.22, -1.17);
+    c.quadraticCurveTo(-0.5, -1.3, -0.96, -0.86);
+    c.quadraticCurveTo(-1.26, -0.4, -1.22, 0.3);
+    c.lineTo(-1.18, 1.0);
+    c.quadraticCurveTo(-0.92, 1.08, -0.62, 0.98);
+    c.lineTo(-0.3, 0.3); c.lineTo(0.7, 0.2); c.closePath();
+    fillOut(c, longHairFill(c, ch), lw);
+    c.strokeStyle = mix(ch.hair, '#7A5A30', 0.35); c.lineWidth = lw * 0.8; c.lineCap = 'round';
+    for (const [x0, y0, x1, y1] of [[-0.98, -0.5, -1.02, 0.86], [-0.8, -0.2, -0.82, 0.92], [0.98, -0.2, 0.96, 0.5]]) {
+      c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x0 - 0.06, (y0 + y1) / 2, x1, y1); c.stroke();
     }
   } else if (look === 'center') {
     // sleek, full black hair over the ears and down the nape
@@ -520,6 +594,20 @@ function drawHead(c, ch, p, lw, t, lx, ly, mood) {
     c.strokeStyle = ch.hair2; c.lineWidth = lw * 0.8;
     c.beginPath(); c.moveTo(-0.45, -0.95); c.quadraticCurveTo(-0.2, -0.72, -0.02, -0.86); c.stroke();
     c.beginPath(); c.moveTo(0.22, -0.98); c.quadraticCurveTo(0.46, -0.76, 0.64, -0.9); c.stroke();
+  } else if (look === 'longhair') {
+    // parted in the middle; straight curtains frame the face down to the jaw on both sides
+    c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, 0.75); c.lineTo(0.93, 0.75);
+    c.quadraticCurveTo(0.9, 0.05, 0.86, -0.34);
+    c.quadraticCurveTo(0.66, -0.62, 0.42, -0.9);
+    c.quadraticCurveTo(0.24, -0.62, 0.0, -0.46);
+    c.quadraticCurveTo(-0.22, -0.3, -0.38, -0.24);
+    c.quadraticCurveTo(-0.5, 0.16, -0.52, 0.86);
+    c.lineTo(-1.1, 0.95); c.closePath();
+    c.fillStyle = longHairFill(c, ch); c.fill();
+    c.strokeStyle = mix(ch.hair, '#7A5A30', 0.35); c.lineWidth = lw * 0.8; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0.3, -0.96); c.quadraticCurveTo(0.1, -0.66, -0.2, -0.5); c.stroke();
+    c.beginPath(); c.moveTo(0.56, -0.96); c.quadraticCurveTo(0.74, -0.66, 0.86, -0.1); c.stroke();
+    c.beginPath(); c.moveTo(-0.46, -0.3); c.quadraticCurveTo(-0.6, 0.2, -0.62, 0.84); c.stroke();
   } else if (look === 'center') {
     // curtain bangs: parted in the middle of the forehead, falling to both sides
     c.beginPath(); c.moveTo(-1.1, -1.2); c.lineTo(1.1, -1.2); c.lineTo(1.1, -0.34);
@@ -587,6 +675,7 @@ function drawFace(c, ch, look, lw, t, lx, ly, mood) {
   const robot = look === 'robot';
   if (look === 'shades') { drawShadesFace(c, lw, mood); return; }
   if (look === 'center') { drawCenterFace(c, lw, t, lx, ly, mood); return; }
+  if (look === 'longhair') { drawLongFace(c, lw, t, lx, ly, mood); return; }
   // cheeks
   if (look === 'bob' || look === 'ghost' || look === 'sumo') {
     c.fillStyle = look === 'sumo' ? 'rgba(255,120,120,.45)' : 'rgba(255,140,170,.5)';
@@ -700,6 +789,69 @@ function drawShadesFace(c, lw, mood) {
   if (mood === 'joy') c.quadraticCurveTo(mx + 0.06, my + open * 2.1, mx - 0.21, my - 0.02);
   else c.quadraticCurveTo(mx + 0.04, my + open * 1.6, mx - 0.21, my - 0.02);
   c.closePath(); c.lineWidth = lw * 0.8; c.strokeStyle = OUT; c.stroke();
+}
+// bleached hair, darker at the roots
+function longHairFill(c, ch) {
+  const g = c.createLinearGradient(0, -1.3, 0, 1.0);
+  g.addColorStop(0, ch.hair2); g.addColorStop(0.2, mix(ch.hair2, ch.hair, 0.6)); g.addColorStop(0.34, ch.hair); g.addColorStop(1, mix(ch.hair, '#FFF4D0', 0.35));
+  return g;
+}
+// ゆうき: half-lidded eyes looking down a little, and a small pout
+function drawLongFace(c, lw, t, lx, ly, mood) {
+  const eyes = [[0.15, -0.05, 0.9], [0.62, -0.05, 1]];
+  c.lineCap = 'round';
+  for (const [ex, ey, sz] of eyes) {
+    if (mood === 'blink' || mood === 'joy') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 1.2; c.beginPath();
+      if (mood === 'joy') c.arc(ex, ey + 0.07, 0.13 * sz, Math.PI * 1.12, Math.PI * 1.88); else { c.moveTo(ex - 0.15, ey + 0.03); c.quadraticCurveTo(ex, ey + 0.07, ex + 0.15, ey + 0.02); }
+      c.stroke(); continue;
+    }
+    if (mood === 'dizzy') {
+      c.strokeStyle = OUT; c.lineWidth = lw * 0.9; c.beginPath();
+      for (let k = 0; k < 18; k++) { const a = k * 0.7 + t * 9, rr = 0.02 + k * 0.008; c.lineTo(ex + Math.cos(a) * rr, ey + Math.sin(a) * rr); }
+      c.stroke(); continue;
+    }
+    const open = (mood === 'up' || mood === 'yell' ? 0.17 : mood === 'sad' || mood === 'cold' ? 0.09 : 0.12) * sz, rx = 0.16 * sz;
+    c.save();
+    c.beginPath(); c.moveTo(ex - rx, ey); c.quadraticCurveTo(ex, ey - open * 1.15, ex + rx, ey - 0.005);
+    c.quadraticCurveTo(ex, ey + open * 1.3, ex - rx, ey); c.closePath();
+    c.fillStyle = '#FFFFFF'; c.fill(); c.clip();
+    const px = ex + lx * rx * 0.4, py = ey + 0.035 + ly * 0.03;
+    c.fillStyle = '#3A2A22'; circ(c, px, py, 0.1 * sz); c.fill();
+    c.fillStyle = '#120C0A'; circ(c, px, py, 0.05 * sz); c.fill();
+    c.fillStyle = '#FFFFFF'; circ(c, px - 0.035, py - 0.04, 0.026); c.fill();
+    c.restore();
+    // a flat, heavy upper lid
+    c.strokeStyle = OUT; c.lineWidth = lw * 1.5;
+    c.beginPath(); c.moveTo(ex - rx - 0.02, ey + 0.01); c.quadraticCurveTo(ex, ey - open * 1.2, ex + rx + 0.03, ey - 0.02); c.stroke();
+    if (mood === 'cold') { c.fillStyle = 'rgba(120,200,255,.45)'; ell(c, ex, ey, rx, open); c.fill(); }
+  }
+  // thin, relaxed brows (half under the bangs)
+  c.strokeStyle = 'rgba(110,78,48,.9)'; c.lineWidth = lw * 1.0;
+  for (const [ex, ey] of eyes) {
+    c.beginPath();
+    if (mood === 'sad' || mood === 'cold') { c.moveTo(ex - 0.13, ey - 0.27); c.lineTo(ex + 0.13, ey - 0.33); }
+    else if (mood === 'fierce') { c.moveTo(ex - 0.14, ey - 0.33); c.lineTo(ex + 0.13, ey - 0.26); }
+    else { c.moveTo(ex - 0.13, ey - 0.3); c.quadraticCurveTo(ex, ey - 0.34, ex + 0.14, ey - 0.31); }
+    c.stroke();
+  }
+  // nose
+  c.lineWidth = lw * 0.8; c.strokeStyle = OUT;
+  c.beginPath(); c.moveTo(0.45, 0.1); c.quadraticCurveTo(0.54, 0.23, 0.43, 0.26); c.stroke();
+  const mx = 0.47, my = 0.47;
+  c.lineWidth = lw;
+  if (mood === 'yell' || mood === 'up' || mood === 'dizzy') {
+    ell(c, mx, my + 0.02, 0.11, mood === 'yell' ? 0.13 : 0.09); fillOut(c, '#7A2430', lw * 0.8);
+  } else if (mood === 'joy') {
+    c.beginPath(); c.moveTo(mx - 0.2, my - 0.05); c.quadraticCurveTo(mx, my + 0.24, mx + 0.21, my - 0.07); c.closePath(); fillOut(c, '#7A2430', lw * 0.8);
+  } else if (mood === 'sad' || mood === 'cold') {
+    c.beginPath(); c.moveTo(mx - 0.12, my + 0.07); c.quadraticCurveTo(mx, my - 0.03, mx + 0.13, my + 0.06); c.stroke();
+  } else {
+    // a small pout: lips pressed together, the lower lip pushed out a little
+    c.beginPath(); c.moveTo(mx - 0.1, my + 0.01); c.quadraticCurveTo(mx, my - 0.035, mx + 0.11, my + 0.0); c.stroke();
+    c.fillStyle = 'rgba(205,120,120,.55)'; ell(c, mx + 0.005, my + 0.045, 0.075, 0.035); c.fill();
+    c.lineWidth = lw * 0.6; c.beginPath(); c.arc(mx + 0.005, my + 0.02, 0.07, 0.35, Math.PI - 0.35); c.stroke();
+  }
 }
 // 室橋: narrow, sleepy eyes under heavy lids, and a sly half smile
 function drawCenterFace(c, lw, t, lx, ly, mood) {
