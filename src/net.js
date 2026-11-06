@@ -22,6 +22,8 @@ const RTC = () => window.RTCPeerConnection || window.webkitRTCPeerConnection;
 const p2pOk = () => typeof RTC() === 'function';
 function p2pWhere() {
   if (window.claude || /(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostname)) return 'claude';
+  // shown inside another page's frame (such as a preview on claude.ai): direct links are blocked there
+  try { if (window.top !== window.self) return 'claude'; } catch (e) { return 'claude'; }
   if (location.protocol === 'file:') return 'file';
   return 'web';
 }
